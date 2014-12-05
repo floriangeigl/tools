@@ -8,6 +8,7 @@ from printing import print_f
 import random
 import datetime
 
+
 class GraphAnimator():
     def __init__(self, dataframe, categories, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex',
                  df_cat_key='categories', plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30):
