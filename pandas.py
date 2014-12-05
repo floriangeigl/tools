@@ -11,6 +11,12 @@ import printing
 import basics
 
 
+def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
+    pd.set_option('display.max_colwidth', max_colwidth)
+    pd.set_option('display.width', width)
+    pd.set_option('display.max_rows', max_rows)
+
+
 def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label="", y_label="", max_orig_lines=1000, alpha=0.1, verbose=True, file_ext='.png'):
     if verbose:
         printing.print_f('plot dataframe', class_name='pdtools')

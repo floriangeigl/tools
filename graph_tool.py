@@ -1,3 +1,4 @@
+from __future__ import division
 from graph_tool.all import *
 import os
 import matplotlib.cm as colormap
@@ -7,6 +8,10 @@ import subprocess
 from printing import print_f
 import random
 import datetime
+import copy
+import shutil
+from sys import platform as _platform
+import numpy as np
 
 
 class GraphAnimator():
