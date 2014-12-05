@@ -19,6 +19,8 @@ import copy
 import shutil
 from sys import platform as _platform
 import numpy as np
+import operator
+import math
 
 
 class GraphAnimator():
