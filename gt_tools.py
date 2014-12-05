@@ -1,4 +1,11 @@
 from __future__ import division
+from sys import platform as _platform
+import matplotlib
+import matplotlib.cm as colormap
+
+if _platform == "linux" or _platform == "linux2":
+    matplotlib.use('Agg')
+import matplotlib.pylab as plt
 from graph_tool.all import *
 import os
 import matplotlib.cm as colormap
@@ -387,6 +394,7 @@ class GraphAnimator():
         if edges_graph is not None:
             graph_draw(edges_graph, fit_view=False, pos=tmp_pos, vorder=size, vertex_size=0, vertex_color=self.bg_color, edge_pen_width=1, edge_color=edge_color,
                        output=self.edges_filename, output_size=output_size, nodesfirst=True, vertex_pen_width=0.0)
+            plt.close('all')
             if self.bg_color is not None:
                 bg_img = Image.new("RGB", output_size, self.bg_color)
                 fg_img = Image.open(self.edges_filename)
@@ -418,6 +426,7 @@ class GraphAnimator():
             graph_draw(nodes_graph, fit_view=False, pos=tmp_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
                        vertex_pie_colors=colors, vertex_shape="pie", edge_pen_width=1, edge_color=edge_color, output=filename, output_size=output_size,
                        vertex_pen_width=0.0)
+            plt.close('all')
             bg_img = Image.open(self.edges_filename)
             fg_img = Image.open(filename)
             bg_img.paste(fg_img, None, fg_img)
