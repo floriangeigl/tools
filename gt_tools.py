@@ -682,6 +682,8 @@ class GraphGenerator():
     # This could make diffusion problematic!
     def create_random_graph(self, min_degree=2, max_degree=40, model="probabilistic", communities=10):
         # Function to sample edges between nodes!
+        self.print_f('create random graph')
+
         def sample_k(min_val, max_val, k=None):
             accept = False
             while not accept:
