@@ -94,7 +94,7 @@ class GraphAnimator():
                 g_cat_map = {i: idx for idx, i in enumerate(g_cat)}
                 num_g_cat = len(g_cat)
                 color_mapping = {i: g_cat_map[random.sample(groups[i], 1)[0]] / num_g_cat for i in categories}
-            except Exception:
+            except:
                 GraphAnimator.print_f('Error in getting categories color mapping.', traceback.print_exc())
                 return GraphAnimator.get_categories_color_mapping(categories)
         else:
