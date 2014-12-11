@@ -26,6 +26,16 @@ def print_fm(*args, **kwargs):
     print_f(*args, class_name='Main', **kwargs)
 
 
+def print_matrix(matrix):
+    for i in matrix:
+        for j in i:
+            if j < 0.0001 and not j == 0:
+                print('{:.2e}'.format(j)[:10].center(10), end=' ')
+            else:
+                print(str(j)[:10].center(10), end=' ')
+        print('')
+
+
 class bcolors:
     prefix = '\33'
     ENDC = prefix + '[0m'
