@@ -25,6 +25,7 @@ import sys
 from scipy.stats import powerlaw, poisson
 from collections import defaultdict
 import traceback
+from basics import create_folder_structure
 
 
 def print_f(*args, **kwargs):
@@ -34,10 +35,20 @@ def print_f(*args, **kwargs):
 
 
 class GraphAnimator():
-    def __init__(self, dataframe, categories, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key='categories', plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30):
+    def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex',
+                 df_cat_key=None, df_size_key=None, plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
-        self.categories = categories
+        self.df_iteration_key = df_iteration_key
+        self.df_vertex_key = df_vertex_key
+        self.df_cat_key = df_cat_key
+        self.draw_fractions = self.df_cat_key is not None
+        self.df_size_key = df_size_key
+        if any(isinstance(i, int) for i in self.df_vertex_key):
+            self.print_f('convert vertex column to vertex instances')
+            self.df[self.df_vertex_key] = self.df[self.df_vertex_key].apply(func=lambda x: network.vertex(x))
+
+        self.categories = set.union(*list(self.df[self.df_cat_key])) if self.df_cat_key is not None else None
         self.network = network
         self.output_filenum = 0
 
@@ -55,14 +66,11 @@ class GraphAnimator():
         self.edges_filename = self.filename_folder + '/' + self.tmp_folder_name + 'edges_' + self.filename_basename
         if not os.path.isdir(self.filename_folder + '/' + self.tmp_folder_name):
             try:
-                os.mkdir(self.filename_folder + '/' + self.tmp_folder_name)
+                create_folder_structure(self.filename_folder + '/' + self.tmp_folder_name)
             except:
                 self.print_f('Could not create tmp-folder:', self.filename_folder + '/' + self.tmp_folder_name)
                 raise Exception
         self.verbose = verbose
-        self.df_iteration_key = df_iteration_key
-        self.df_vertex_key = df_vertex_key
-        self.df_cat_key = df_cat_key
         self.plot_each = plot_each
         self.fps = fps
         self.output_size = output_size
@@ -71,6 +79,11 @@ class GraphAnimator():
         self.smoothing = smoothing
         self.rate = rate
         self.pos = None
+        self.cmap = cmap
+        if self.cmap is None:
+            self.cmap = colormap.get_cmap('gist_rainbow')
+        elif isinstance(self.cmap, str):
+            self.cmap = colormap.get_cmap(self.cmap)
 
     def generate_filename(self, filenum):
         return self.filename_folder + '/' + self.tmp_folder_name + str(int(filenum)).rjust(6, '0') + self.filename_basename
@@ -85,21 +98,24 @@ class GraphAnimator():
         self.network = network
 
     @staticmethod
-    def get_categories_color_mapping(categories, groups=None):
+    def get_categories_color_mapping(categories=None, groups=None, cmap=None):
         GraphAnimator.print_f('get color mapping')
-        cmap = colormap.get_cmap('gist_rainbow')
-        if groups:
+        if cmap is None:
+            cmap = colormap.get_cmap('gist_rainbow')
+        if groups and categories:
             try:
                 g_cat = set.union(*[groups[i] for i in categories])
                 g_cat_map = {i: idx for idx, i in enumerate(g_cat)}
                 num_g_cat = len(g_cat)
-                color_mapping = {i: g_cat_map[random.sample(groups[i], 1)[0]] / num_g_cat for i in categories}
+                color_mapping = {i: g_cat_map[random.sample(groups[i], 1)[0]] / num_g_cat for i in sorted(categories)}
             except:
                 GraphAnimator.print_f('Error in getting categories color mapping.', traceback.print_exc())
-                return GraphAnimator.get_categories_color_mapping(categories)
-        else:
+                return GraphAnimator.get_categories_color_mapping(categories, cmap=cmap)
+        elif categories:
             num_categories = len(categories)
-            color_mapping = {i: idx / num_categories for idx, i in enumerate(categories)}
+            color_mapping = {i: idx / num_categories for idx, i in enumerate(sorted(categories))}
+        else:
+            return cmap
         result = {key: (cmap(val), val) for key, val in color_mapping.iteritems()}
         deactivated_color_nodes = [0.179, 0.179, 0.179, 0.05]
         result.update({-1: (deactivated_color_nodes, -1)})
@@ -110,41 +126,46 @@ class GraphAnimator():
         kwargs.update({'class_name': 'GraphAnimator'})
         print_f(*args, **kwargs)
 
-    def calc_absolute_positions(self, pos=None, reposition=False, **kwargs):
+    def calc_absolute_positions(self, pos=None, reposition=False, network=None, **kwargs):
+        if network is None:
+            network = self.network
         if pos is not None:
             if reposition:
-                pos = sfdp_layout(self.network, pos=pos, **kwargs)
-            else:
-                pos = sfdp_layout(self.network, **kwargs)
-        pos_ar = np.array([np.array(pos[v]) for v in self.network.vertices()])
+                pos = sfdp_layout(network, pos=pos, **kwargs)
+        else:
+            pos = sfdp_layout(network, **kwargs)
+        pos_ar = np.array([np.array(pos[v]) for v in network.vertices()])
         max_x, max_y = pos_ar.max(axis=0)
         min_x, min_y = pos_ar.min(axis=0)
         max_x -= min_x
         max_y -= min_y
-        spacing = 0.15 if self.network.num_vertices() > 10 else 0.3
-        for v in self.network.vertices():
-            pos[v] = [(pos[v][0] - min_x) / max_x * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2)), (pos[v][1] - min_y) / max_y * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2))]
+        spacing = 0.15 if network.num_vertices() > 10 else 0.3
+        for v in network.vertices():
+            pos[v] = [(pos[v][0] - min_x) / max_x * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2)),
+                      (pos[v][1] - min_y) / max_y * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2))]
         return pos
 
-    def calc_grouped_sfdp_layout(self, groups_vp='groups', pos=None, mu=3, **kwargs):
-        orig_groups_map = self.network.vp[groups_vp] if isinstance(groups_vp, str) else groups_vp
-        e_weights = self.network.new_edge_property('float')
-        for e in self.network.edges():
+    def calc_grouped_sfdp_layout(self, network=None, groups_vp='groups', pos=None, mu=3, **kwargs):
+        if network is None:
+            network = self.network
+        orig_groups_map = network.vp[groups_vp] if isinstance(groups_vp, str) else groups_vp
+        e_weights = network.new_edge_property('float')
+        for e in network.edges():
             src_g, dest_g = orig_groups_map[e.source()], orig_groups_map[e.target()]
             try:
                 e_weights[e] = len(src_g & dest_g) / len(src_g | dest_g)
             except ZeroDivisionError:
                 e_weights[e] = 0
-        groups_map = self.network.new_vertex_property('int')
-        for v in self.network.vertices():
+        groups_map = network.new_vertex_property('int')
+        for v in network.vertices():
             v_orig_groups = orig_groups_map[v]
             if len(v_orig_groups) > 0:
                 groups_map[v] = random.sample(v_orig_groups, 1)[0]
             else:
                 groups_map[v] = -1
-        return sfdp_layout(self.network, pos=pos, groups=groups_map, eweight=e_weights, mu=mu, **kwargs)
+        return sfdp_layout(network, pos=pos, groups=groups_map, eweight=e_weights, mu=mu, **kwargs)
 
-    def plot_network_evolution(self, dynamic_pos=False):
+    def plot_network_evolution(self, dynamic_pos=False, infer_size_from_fraction=True):
         self.output_filenum = 0
         tmp_smoothing = self.fps * self.smoothing
         smoothing = self.smoothing
@@ -161,12 +182,12 @@ class GraphAnimator():
         init_pause_time = int(math.ceil(init_pause_time))
         if self.verbose > 0:
             self.print_f('Framerate:', fps)
-            self.print_f('Meetings per second:', fps / smoothing)
+            self.print_f('Iterations per second:', fps / smoothing)
             self.print_f('Smoothing:', smoothing)
             self.print_f('Init pause:', init_pause_time)
 
         # get colors
-        categories_colors = self.get_categories_color_mapping(self.categories, self.fraction_groups)
+        color_mapping = self.get_categories_color_mapping(self.categories, self.fraction_groups, self.cmap)
         # get positions &
         if self.verbose >= 1:
             self.print_f('calc graph layout')
@@ -178,13 +199,22 @@ class GraphAnimator():
         self.pos = self.calc_absolute_positions(self.pos)
 
         # PLOT
-        total_iterations = int(self.df[self.df_iteration_key].max())
+        total_iterations = self.df[self.df_iteration_key].max() - self.df[self.df_iteration_key].min()
         if self.verbose >= 1:
             self.print_f('iterations:', total_iterations)
-        self.network.vertex_properties[self.df_cat_key] = self.network.new_vertex_property('object')
-        fractions_vp = self.network.vertex_properties[self.df_cat_key]
-        for v in self.network.vertices():
-            fractions_vp[v] = set()
+        if self.draw_fractions:
+            self.print_f('draw fractions')
+            self.network.vp[self.df_cat_key] = self.network.new_vertex_property('object')
+            fractions_vp = self.network.vp[self.df_cat_key]
+            for v in self.network.vertices():
+                fractions_vp[v] = set()
+        else:
+            fractions_vp = None
+
+        size_map = self.network.new_vertex_property('float')
+        if self.df_size_key is not None:
+            self.network.vp[self.df_size_key] = size_map
+
         try:
             _ = self.network.vp['NodeId']
         except KeyError:
@@ -196,37 +226,47 @@ class GraphAnimator():
         grouped_by_iteration = self.df.groupby(self.df_iteration_key)
         self.print_f('Resulting video will be', int(total_iterations / self.plot_each * smoothing / fps) + (init_pause_time * 2 / fps * smoothing), 'seconds long')
 
-        last_iteration = -1
+        last_iteration = self.df[self.df_iteration_key].min() - 1
         draw_edges = True
         just_copy = True
         pos = self.pos
         last_progress_perc = -1
         start = datetime.datetime.now()
         for iteration, data in grouped_by_iteration:
-            for one_iteration in range(last_iteration + 1, iteration + 1):
+            for iteration_idx, one_iteration in enumerate(range(last_iteration + 1, iteration + 1)):
                 last_iteration = one_iteration
                 if self.verbose >= 2:
                     self.print_f('iteration:', one_iteration)
                 if one_iteration == iteration:
                     for idx, row in data.iterrows():
                         vertex = row[self.df_vertex_key]
-                        old_f_vp = fractions_vp[vertex]
-                        new_f_vp = row[self.df_cat_key]
-                        if not draw_edges:
-                            len_old, len_new = len(old_f_vp), len(new_f_vp)
-                            if len_old != len_new and (len_old == 0 or len_new == 0):
+                        if self.draw_fractions:
+                            old_f_vp = fractions_vp[vertex]
+                            new_f_vp = row[self.df_cat_key]
+                            if not draw_edges:
+                                len_old, len_new = len(old_f_vp), len(new_f_vp)
+                                if len_old != len_new and (len_old == 0 or len_new == 0):
+                                    draw_edges = True
+                            if just_copy:
+                                if old_f_vp != new_f_vp:
+                                    just_copy = False
+                            fractions_vp[vertex] = new_f_vp
+                        else:
+                            old_size = size_map[vertex]
+                            new_size = row[self.df_size_key]
+                            if not draw_edges and old_size != new_size and (old_size == 0 or new_size == 0):
                                 draw_edges = True
-                        if just_copy:
-                            if old_f_vp != new_f_vp:
-                                just_copy = False
-                        fractions_vp[vertex] = new_f_vp
+                            if just_copy:
+                                if old_size != new_size:
+                                    just_copy = False
+                            size_map[vertex] = new_size
                         if self.verbose >= 2:
-                            self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex])
-                if one_iteration % self.plot_each == 0 or one_iteration == 0 or one_iteration == total_iterations:
-                    current_perc = int(one_iteration / total_iterations * 100)
-                    if one_iteration > 0:
-                        avg_time = (datetime.datetime.now() - start).total_seconds() / one_iteration
-                        est_time = datetime.timedelta(seconds=int(avg_time * (total_iterations - one_iteration)))
+                            self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (size_map[vertex] if size_map is not None else ''))
+                if iteration_idx % self.plot_each == 0 or iteration_idx == 0 or iteration_idx == total_iterations:
+                    current_perc = int(iteration_idx / total_iterations * 100)
+                    if iteration_idx > 0:
+                        avg_time = (datetime.datetime.now() - start).total_seconds() / iteration_idx
+                        est_time = datetime.timedelta(seconds=int(avg_time * (total_iterations - iteration_idx)))
                     else:
                         est_time = '-'
                     if self.verbose >= 1:
@@ -234,15 +274,14 @@ class GraphAnimator():
                             last_progress_perc = current_perc
                             ext = 'draw edges' if draw_edges else ''
                             self.print_f('plot network evolution iteration:', one_iteration, '(' + str(current_perc) + '%)', 'est remain:', est_time, ext)
-                    if one_iteration == 0 or one_iteration == total_iterations:
+                    if iteration_idx == 0 or iteration_idx == total_iterations:
                         for i in xrange(init_pause_time):
-                            offset = i
-                            if one_iteration == total_iterations:
-                                offset += init_pause_time
-                            self.__draw_graph_animation_pic(fractions_vp, categories_colors, pos=pos, draw_edges=draw_edges, just_copy_last=i != 0, smoothing=smoothing)
-                        init_pause_time -= 1
+                            self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, pos=pos, draw_edges=draw_edges, just_copy_last=i != 0,
+                                                            smoothing=smoothing,
+                                                            dynamic_pos=dynamic_pos)
                     else:
-                        self.__draw_graph_animation_pic(fractions_vp, categories_colors, pos=pos, draw_edges=draw_edges, smoothing=smoothing, just_copy_last=just_copy)
+                        self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, pos=pos, draw_edges=draw_edges, smoothing=smoothing,
+                                                        just_copy_last=just_copy, dynamic_pos=dynamic_pos)
                     draw_edges = False
                     just_copy = True
 
@@ -255,7 +294,8 @@ class GraphAnimator():
                 if self.verbose >= 1:
                     self.print_f('create movie...')
                 exit_status = subprocess.check_call(
-                    ['ffmpeg', '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', str(fps), '-r', str(self.rate), '-y', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi'], stdout=devnull,
+                    ['ffmpeg', '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', str(fps), '-r', str(self.rate), '-y',
+                     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi'], stdout=devnull,
                     stderr=devnull)
                 if exit_status == 0:
                     if self.verbose >= 1:
@@ -263,7 +303,8 @@ class GraphAnimator():
                         _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
 
-    def __draw_graph_animation_pic(self, fraction_map, color_map, pos=None, draw_edges=True, just_copy_last=False, smoothing=1):
+    def __draw_graph_animation_pic(self, color_map=None, size_map=None, fraction_map=None, pos=None, draw_edges=True, just_copy_last=False, smoothing=1, dynamic_pos=False,
+                                   infer_size_from_fraction=True):
         if just_copy_last:
             min_filenum = self.output_filenum
             orig_filename = self.generate_filename(min_filenum - 1)
@@ -281,11 +322,20 @@ class GraphAnimator():
         min_vertex_size_shrinking_factor = 2
 
         size = self.network.new_vertex_property('float')
-
+        if not infer_size_from_fraction and size_map is None or (infer_size_from_fraction and fraction_map is None):
+            infer_size_from_fraction = False
+            if size_map is None:
+                for v in self.network.vertices():
+                    size[v] = 1
+            else:
+                size = size_map
         try:
             colors = self.network.vp['node_color']
         except KeyError:
-            colors = self.network.new_vertex_property('object')
+            if fraction_map is not None:
+                colors = self.network.new_vertex_property('object')
+            else:
+                colors = self.network.new_vertex_property('vector<double>')
             self.network.vp['node_color'] = colors
         try:
             _ = self.network.vp['node_fractions']
@@ -295,15 +345,6 @@ class GraphAnimator():
         edge_color = self.network.new_edge_property('vector<double>')
         for e in self.network.edges():
             edge_color[e] = default_edge_color
-
-        try:
-            if self.output_filenum > 0:
-                last_fraction_map = self.network.vp['last_fraction_map']
-            else:
-                raise KeyError
-        except KeyError:
-            last_fraction_map = copy.copy(fraction_map)
-            self.network.vp['last_fraction_map'] = last_fraction_map
 
         nodes_graph = GraphView(self.network, efilt=lambda x: False)
         edges_graph = None
@@ -315,56 +356,75 @@ class GraphAnimator():
                 edges_graph = self.network
 
         current_size = nodes_graph.new_vertex_property('float')
-        current_fraction_map = nodes_graph.new_vertex_property('object')
-        vanish_fraction = nodes_graph.new_vertex_property('object')
-        emerge_fraction = nodes_graph.new_vertex_property('object')
-        vanish_fraction_reduce = nodes_graph.new_vertex_property('float')
-        emerge_fraction_increase = nodes_graph.new_vertex_property('float')
-        stay_fraction_change = nodes_graph.new_vertex_property('float')
-        current_fraction_values = nodes_graph.new_vertex_property('vector<double>')
-        fraction_mods = nodes_graph.new_vertex_property('vector<int>')
-        for v in nodes_graph.vertices():
-            new_frac = fraction_map[v]
-            last_frac = last_fraction_map[v]
-            new_frac_len = len(new_frac)
-            last_frac_len = len(last_frac)
-            if last_frac_len == 0:
-                last_frac = {-1}
-                # last_frac_len = 1
-            if new_frac_len == 0:
-                new_frac = {-1}
-                new_frac_len = 1
-            size[v] = new_frac_len
-            current_frac = last_frac | new_frac
-            current_fraction_map[v] = current_frac
-            vanish = last_frac - new_frac
-            vanish_fraction[v] = vanish
-            emerge = new_frac - last_frac
-            emerge_fraction[v] = emerge
-            old_slice_size = 1 / len(last_frac) if len(last_frac) > 0 else 1
-            new_slice_size = 1 / len(new_frac) if len(new_frac) > 0 else 1
-            vanish_fraction_reduce[v] = -old_slice_size / smoothing
-            emerge_fraction_increase[v] = new_slice_size / smoothing
-            stay_fraction_change[v] = (new_slice_size - old_slice_size) / smoothing
-            colors[v] = zip(*sorted([color_map[i] for i in current_frac], key=operator.itemgetter(1)))[0]
-            tmp_current_fraction_values = []
-            sorted_fractions = sorted(current_frac, key=lambda x: color_map[x][1])
-            tmp_fraction_mod = []
-            for i in sorted_fractions:
-                if i in emerge:
-                    tmp_current_fraction_values.append(0)
-                    tmp_fraction_mod.append(1)
+
+        if fraction_map is not None:
+            try:
+                if self.output_filenum > 0:
+                    last_fraction_map = self.network.vp['last_fraction_map']
                 else:
-                    if i in vanish:
-                        tmp_fraction_mod.append(-1)
+                    raise KeyError
+            except KeyError:
+                last_fraction_map = copy.copy(fraction_map)
+                self.network.vp['last_fraction_map'] = last_fraction_map
+
+            current_fraction_map = nodes_graph.new_vertex_property('object')
+            vanish_fraction = nodes_graph.new_vertex_property('object')
+            emerge_fraction = nodes_graph.new_vertex_property('object')
+            vanish_fraction_reduce = nodes_graph.new_vertex_property('float')
+            emerge_fraction_increase = nodes_graph.new_vertex_property('float')
+            stay_fraction_change = nodes_graph.new_vertex_property('float')
+            current_fraction_values = nodes_graph.new_vertex_property('vector<double>')
+            fraction_mods = nodes_graph.new_vertex_property('vector<int>')
+            for v in nodes_graph.vertices():
+                new_frac = fraction_map[v]
+                last_frac = last_fraction_map[v]
+                new_frac_len = len(new_frac)
+                last_frac_len = len(last_frac)
+                if last_frac_len == 0:
+                    last_frac = {-1}
+                    # last_frac_len = 1
+                if new_frac_len == 0:
+                    new_frac = {-1}
+                    new_frac_len = 1
+                if infer_size_from_fraction:
+                    size[v] = new_frac_len
+                current_frac = last_frac | new_frac
+                current_fraction_map[v] = current_frac
+                vanish = last_frac - new_frac
+                vanish_fraction[v] = vanish
+                emerge = new_frac - last_frac
+                emerge_fraction[v] = emerge
+                old_slice_size = 1 / len(last_frac) if len(last_frac) > 0 else 1
+                new_slice_size = 1 / len(new_frac) if len(new_frac) > 0 else 1
+                vanish_fraction_reduce[v] = -old_slice_size / smoothing
+                emerge_fraction_increase[v] = new_slice_size / smoothing
+                stay_fraction_change[v] = (new_slice_size - old_slice_size) / smoothing
+                colors[v] = zip(*sorted([color_map[i] for i in current_frac], key=operator.itemgetter(1)))[0]
+                tmp_current_fraction_values = []
+                sorted_fractions = sorted(current_frac, key=lambda x: color_map[x][1])
+                tmp_fraction_mod = []
+                for i in sorted_fractions:
+                    if i in emerge:
+                        tmp_current_fraction_values.append(0)
+                        tmp_fraction_mod.append(1)
                     else:
-                        tmp_fraction_mod.append(0)
-                    tmp_current_fraction_values.append(old_slice_size)
-            fraction_mods[v] = tmp_fraction_mod
-            current_fraction_values[v] = tmp_current_fraction_values
-            if new_frac == {-1} and edges_graph is not None:
-                for e in edges_graph.vertex(v).all_edges():
-                    edge_color[e] = deactivated_color_edges
+                        if i in vanish:
+                            tmp_fraction_mod.append(-1)
+                        else:
+                            tmp_fraction_mod.append(0)
+                        tmp_current_fraction_values.append(old_slice_size)
+                fraction_mods[v] = tmp_fraction_mod
+                current_fraction_values[v] = tmp_current_fraction_values
+                if new_frac == {-1} and edges_graph is not None:
+                    for e in edges_graph.vertex(v).all_edges():
+                        edge_color[e] = deactivated_color_edges
+        else:
+            for v in nodes_graph.vertices():
+                val = size[v]
+                colors[v] = color_map(val)
+                if val <= 0 and edges_graph is not None:
+                    for e in edges_graph.vertex(v).all_edges():
+                        edge_color[e] = deactivated_color_edges
 
         num_nodes = self.network.num_vertices()
         tmp_output_size = self.output_size
@@ -381,9 +441,26 @@ class GraphAnimator():
             min_vertex_size = max_vertex_size
 
         output_size = (self.output_size, self.output_size)
-        tmp_pos = nodes_graph.new_vertex_property('vector<double>')
-        for v in nodes_graph.vertices():
-            tmp_pos[v] = pos[v]
+        new_pos = nodes_graph.new_vertex_property('vector<double>')
+
+        if dynamic_pos:
+            old_pos = pos
+            pos_tmp_net = GraphView(nodes_graph, vfilt=lambda x: size[x] > 0)
+            try:
+                tmp_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=old_pos)
+            except KeyError:
+                tmp_pos = sfdp_layout(pos_tmp_net, pos=old_pos)
+            # calc absolute positions
+            tmp_pos = self.calc_absolute_positions(tmp_pos, network=pos_tmp_net)
+
+            for v in nodes_graph.vertices():
+                try:
+                    new_pos[v] = tmp_pos[v]
+                except KeyError:
+                    new_pos[v] = [0., 0.]
+        else:
+            new_pos = pos
+
         size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
         copy_new_size = False
         old_size = None
@@ -398,38 +475,57 @@ class GraphAnimator():
             old_size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
             self.network.vp['last_node_size'] = old_size
 
-        if edges_graph is not None:
-            graph_draw(edges_graph, fit_view=False, pos=tmp_pos, vorder=size, vertex_size=0, vertex_color=self.bg_color, edge_pen_width=1, edge_color=edge_color, output=self.edges_filename, output_size=output_size, nodesfirst=True, vertex_pen_width=0.0)
-            plt.close('all')
-            if self.bg_color is not None:
-                bg_img = Image.new("RGB", output_size, self.bg_color)
-                fg_img = Image.open(self.edges_filename)
-                bg_img.paste(fg_img, None, fg_img)
-                bg_img.save(self.edges_filename, 'PNG')
-
         for smoothing_step in range(smoothing):
             fac = (smoothing_step + 1) / smoothing
             old_fac = 1 - fac
             new_fac = fac
-            for v in nodes_graph.vertices():
-                tmp = []
-                for mod, val in zip(list(fraction_mods[v]), list(current_fraction_values[v])):
-                    if mod == 0:
-                        val += stay_fraction_change[v]
-                    elif mod == 1:
-                        val += emerge_fraction_increase[v]
-                    elif mod == -1:
-                        val += vanish_fraction_reduce[v]
-                    else:
-                        self.print_f('ERROR: Fraction modification unknown')
-                        raise Exception
-                    tmp.append(val)
-                current_fraction_values[v] = tmp
+            if fraction_map is not None:
+                for v in nodes_graph.vertices():
+                    tmp = []
+                    for mod, val in zip(list(fraction_mods[v]), list(current_fraction_values[v])):
+                        if mod == 0:
+                            val += stay_fraction_change[v]
+                        elif mod == 1:
+                            val += emerge_fraction_increase[v]
+                        elif mod == -1:
+                            val += vanish_fraction_reduce[v]
+                        else:
+                            self.print_f('ERROR: Fraction modification unknown')
+                            raise Exception
+                        tmp.append(val)
+                    current_fraction_values[v] = tmp
+                vertex_shape = "pie"
+            else:
+                current_fraction_values = [0.75, 0.25]
+                vertex_shape = "circle"
 
             current_size.a = old_fac * old_size.a + new_fac * size.a
+            if dynamic_pos:
+                current_pos = self.network.new_vertex_property('vector<float>')
+                for v in self.network.vertices():
+                    old_pos_v = old_pos[v]
+                    new_pos_v = new_pos[v]
+                    current_pos[v] = [old_fac * old_pos_v[i] + new_fac * new_pos_v[i] for i in xrange(2)]
+            else:
+                current_pos = new_pos
+
+            if edges_graph is not None and (smoothing_step == 0 or dynamic_pos):
+                eorder = edges_graph.new_edge_property('float')
+                for e in edges_graph.edges():
+                    eorder[e] = np.sum(edge_color[e])
+                graph_draw(edges_graph, fit_view=False, pos=current_pos, vorder=size, vertex_size=0, vertex_color=self.bg_color, edge_pen_width=1, edge_color=edge_color,
+                           output=self.edges_filename, eorder=eorder, output_size=output_size, nodesfirst=True, vertex_pen_width=0.0)
+                plt.close('all')
+                if self.bg_color is not None:
+                    bg_img = Image.new("RGB", output_size, self.bg_color)
+                    fg_img = Image.open(self.edges_filename)
+                    bg_img.paste(fg_img, None, fg_img)
+                    bg_img.save(self.edges_filename, 'PNG')
+
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
-            graph_draw(nodes_graph, fit_view=False, pos=tmp_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values, vertex_pie_colors=colors, vertex_shape="pie", edge_pen_width=1, edge_color=edge_color, output=filename, output_size=output_size,
+            graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
+                       vertex_pie_colors=colors, vertex_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color, output=filename, output_size=output_size,
                        vertex_pen_width=0.0)
             plt.close('all')
             bg_img = Image.open(self.edges_filename)
@@ -437,7 +533,10 @@ class GraphAnimator():
             bg_img.paste(fg_img, None, fg_img)
             bg_img.save(filename, 'PNG')
         self.network.vp['last_node_size'] = size
-        self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
+        if fraction_map is not None:
+            self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
+        if dynamic_pos:
+            pos = new_pos
 
 
 # Generator Class works with GraphTool generators, as they provide more functionality than NetworkX Generators
@@ -466,7 +565,8 @@ class GraphGenerator():
 
         self.print_f("Starting to create Blockmodel Graph with {} nodes and {} blocks".format(self.num_nodes, blocks))
 
-        self.graph, vertex_colors = random_graph(self.num_nodes, lambda: poisson(connectivity), directed=False, model=model, block_membership=lambda: random.randint(1, blocks), vertex_corr=corr)
+        self.graph, vertex_colors = random_graph(self.num_nodes, lambda: poisson(connectivity), directed=False, model=model, block_membership=lambda: random.randint(1, blocks),
+                                                 vertex_corr=corr)
         self.graph.vertex_properties["colorsComm"] = vertex_colors
         return self.return_and_reset()
 
@@ -500,7 +600,8 @@ class GraphGenerator():
     # scale = None
     # scale = relative
     # scale = absolute
-    def create_stochastic_blockmodel_graph(self, blocks=10, size=100, self_block_connectivity=0.9, other_block_connectivity=0.1, connectivity_matrix=None, directed=False, self_edges=False, power_exp=None, scale=None, plot_stat=False):
+    def create_stochastic_blockmodel_graph(self, blocks=10, size=100, self_block_connectivity=0.9, other_block_connectivity=0.1, connectivity_matrix=None, directed=False,
+                                           self_edges=False, power_exp=None, scale=None, plot_stat=False):
         size = size if isinstance(size, list) else [size]
         self_block_connectivity = self_block_connectivity if isinstance(self_block_connectivity, list) else [self_block_connectivity]
         other_block_connectivity = other_block_connectivity if isinstance(other_block_connectivity, list) else [other_block_connectivity]
@@ -691,7 +792,8 @@ class GraphGenerator():
                 accept = random.random() < 1.0 / k
             return k
 
-        self.graph = random_graph(self.num_nodes, lambda: sample_k(min_degree, max_degree), model=model, vertex_corr=lambda i, k: 1.0 / (1 + abs(i - k)), directed=self.directed, n_iter=100)
+        self.graph = random_graph(self.num_nodes, lambda: sample_k(min_degree, max_degree), model=model, vertex_corr=lambda i, k: 1.0 / (1 + abs(i - k)), directed=self.directed,
+                                  n_iter=100)
         self.graph.vp['colorsComm'] = community_structure(self.graph, 10000, max_degree / communities)
         return self.return_and_reset()
 
