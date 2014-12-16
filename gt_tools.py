@@ -491,9 +491,9 @@ class GraphAnimator():
 
         output_size = (self.output_size, self.output_size)
         old_pos = None
+        if self.active_nodes is None:
+            self.active_nodes = active_nodes
         if dynamic_pos:
-            if self.active_nodes is None:
-                self.active_nodes = active_nodes
             old_pos = copy.copy(self.pos_abs)
             pos_tmp_net = GraphView(self.network, vfilt=lambda x: not self.inactive_value_f(size[x]))
             try:
@@ -503,10 +503,11 @@ class GraphAnimator():
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             for v in self.network.vertices():
-                old_active = self.active_nodes[v]
-                new_active = active_nodes[v]
+                old_active = self.active_nodes[v] > 0
+                new_active = active_nodes[v] > 0
                 if old_active and not new_active:
                     new_pos_abs[v] = old_pos[v]
+                    new_pos[v] = self.pos[v]
                 elif not old_active and new_active:
                     old_pos[v] = new_pos_abs[v]
         else:
