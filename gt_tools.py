@@ -87,6 +87,7 @@ class GraphAnimator():
         self.cmap = cmap
         self.inactive_fraction_f = inactive_fraction_f
         self.inactive_value_f = inactive_value_f
+        self.active_nodes = None
         if self.cmap is None:
             def_cmap = 'gist_rainbow'
             if self.verbose >= 2:
@@ -152,8 +153,9 @@ class GraphAnimator():
         max_x -= min_x
         max_y -= min_y
         spacing = 0.15 if network.num_vertices() > 10 else 0.3
-        for v in network.vertices():
-            if len(pos[v]) > 0:
+        counter = 0
+        for v in self.network.vertices():
+            if len(pos[v]) == 2:
                 pos[v] = [(pos[v][0] - min_x) / max_x * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2)),
                           (pos[v][1] - min_y) / max_y * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2))]
         return pos
@@ -205,16 +207,12 @@ class GraphAnimator():
         # get positions
         if self.verbose >= 1:
             self.print_f('calc graph layout')
-        if dynamic_pos:
-            tmp_net = GraphView(self.network, vfilt=(lambda x: not self.inactive_fraction_f(x)) if self.draw_fractions else (lambda x: not self.inactive_value_f(x)))
-        else:
-            tmp_net = self.network
         try:
-            self.pos = self.calc_grouped_sfdp_layout(network=tmp_net, groups_vp='groups')
+            self.pos = self.calc_grouped_sfdp_layout(network=self.network, groups_vp='groups')
         except KeyError:
-            self.pos = sfdp_layout(tmp_net)
+            self.pos = sfdp_layout(self.network)
         # calc absolute positions
-        self.pos_abs = self.calc_absolute_positions(self.pos, network=tmp_net)
+        self.pos_abs = self.calc_absolute_positions(self.pos, network=self.network)
 
         # PLOT
         total_iterations = self.df[self.df_iteration_key].max() - self.df[self.df_iteration_key].min()
@@ -398,6 +396,7 @@ class GraphAnimator():
                 edges_graph = self.network
 
         current_size = nodes_graph.new_vertex_property('float')
+        active_nodes = self.network.new_vertex_property('bool')
 
         if fraction_map is not None:
             try:
@@ -457,19 +456,27 @@ class GraphAnimator():
                         tmp_current_fraction_values.append(old_slice_size)
                 fraction_mods[v] = tmp_fraction_mod
                 current_fraction_values[v] = tmp_current_fraction_values
-                if self.inactive_fraction_f(new_frac) and edges_graph is not None:
-                    for e in edges_graph.vertex(v).all_edges():
-                        edge_color[e] = deactivated_color_edges
-                        active_edges[e] = 0
+                if self.inactive_fraction_f(new_frac):
+                    active_nodes[v] = 0
+                    if edges_graph is not None:
+                        for e in edges_graph.vertex(v).all_edges():
+                            edge_color[e] = deactivated_color_edges
+                            active_edges[e] = 0
+                else:
+                    active_nodes[v] = 1
         else:
             for v in nodes_graph.vertices():
                 val = size[v]
                 inactive = self.inactive_value_f(val)
                 colors[v] = color_map(val) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
-                if inactive and edges_graph is not None:
-                    for e in edges_graph.vertex(v).all_edges():
-                        edge_color[e] = deactivated_color_edges if not dynamic_pos else (deactivated_color_edges[:3] + [0])
-                        active_edges[e] = 0
+                if inactive:
+                    active_nodes[v] = 0
+                    if edges_graph is not None:
+                        for e in edges_graph.vertex(v).all_edges():
+                            edge_color[e] = deactivated_color_edges if not dynamic_pos else (deactivated_color_edges[:3] + [0])
+                            active_edges[e] = 0
+                else:
+                    active_nodes[v] = 1
 
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
         tmp_output_size = self.output_size
@@ -488,6 +495,8 @@ class GraphAnimator():
         output_size = (self.output_size, self.output_size)
         old_pos = None
         if dynamic_pos:
+            if self.active_nodes is None:
+                self.active_nodes = active_nodes
             old_pos = copy.copy(self.pos_abs)
             pos_tmp_net = GraphView(self.network, vfilt=lambda x: not self.inactive_value_f(size[x]))
             try:
@@ -496,11 +505,11 @@ class GraphAnimator():
                 new_pos = sfdp_layout(pos_tmp_net, pos=self.pos)
             # calc absolute positions
             for v in self.network.vertices():
-                old_len = len(old_pos[v])
-                new_len = len(new_pos[v])
-                if new_len == 0 and old_len != 0:
+                old_active = self.active_nodes[v]
+                new_active = active_nodes[v]
+                if old_active and not new_active:
                     new_pos[v] = old_pos[v]
-                elif new_len != 0 and old_len == 0:
+                elif not old_active and new_active:
                     old_pos[v] = new_pos[v]
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
         else:
@@ -551,7 +560,10 @@ class GraphAnimator():
                 for v in self.network.vertices():
                     old_pos_v = old_pos[v]
                     new_pos_v = new_pos_abs[v]
-                    current_pos[v] = [old_fac * old_pos_v[i] + new_fac * new_pos_v[i] for i in xrange(2)]
+                    if len(old_pos_v) == 2 and len(new_pos_v) == 2:
+                        current_pos[v] = [old_fac * old_pos_v[i] + new_fac * new_pos_v[i] for i in xrange(2)]
+                    else:
+                        current_pos[v] = np.array([], dtype='float64')
             else:
                 current_pos = new_pos_abs
 
@@ -585,6 +597,7 @@ class GraphAnimator():
         if dynamic_pos:
             self.pos = new_pos
             self.pos_abs = new_pos_abs
+        self.active_nodes = active_nodes
         return generated_files
 
 
