@@ -153,8 +153,7 @@ class GraphAnimator():
         max_x -= min_x
         max_y -= min_y
         spacing = 0.15 if network.num_vertices() > 10 else 0.3
-        counter = 0
-        for v in self.network.vertices():
+        for v in network.vertices():
             if len(pos[v]) == 2:
                 pos[v] = [(pos[v][0] - min_x) / max_x * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2)),
                           (pos[v][1] - min_y) / max_y * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2))]
@@ -298,13 +297,11 @@ class GraphAnimator():
                         for i in xrange(init_pause_time):
                             self.generate_files[one_iteration].extend(
                                 self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges,
-                                                                just_copy_last=i != 0,
-                                                                smoothing=smoothing, dynamic_pos=dynamic_pos))
+                                                                just_copy_last=i != 0, smoothing=smoothing, dynamic_pos=dynamic_pos))
                     else:
                         self.generate_files[one_iteration].extend(
                             self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges,
-                                                            smoothing=smoothing,
-                                                            just_copy_last=just_copy, dynamic_pos=dynamic_pos))
+                                                            smoothing=smoothing, just_copy_last=just_copy, dynamic_pos=dynamic_pos))
                     draw_edges = False
                     just_copy = True
 
@@ -334,7 +331,7 @@ class GraphAnimator():
                 if exit_status == 0:
                     if self.verbose >= 1:
                         self.print_f('delete pictures...')
-                        # _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+                        _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False,
@@ -396,7 +393,7 @@ class GraphAnimator():
                 edges_graph = self.network
 
         current_size = nodes_graph.new_vertex_property('float')
-        active_nodes = self.network.new_vertex_property('bool')
+        active_nodes = self.network.new_vertex_property('int')
 
         if fraction_map is not None:
             try:
@@ -502,16 +499,16 @@ class GraphAnimator():
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
             except KeyError:
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos)
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos)  # , vweight=self.active_nodes)
             # calc absolute positions
+            new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             for v in self.network.vertices():
                 old_active = self.active_nodes[v]
                 new_active = active_nodes[v]
                 if old_active and not new_active:
-                    new_pos[v] = old_pos[v]
+                    new_pos_abs[v] = old_pos[v]
                 elif not old_active and new_active:
-                    old_pos[v] = new_pos[v]
-            new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
+                    old_pos[v] = new_pos_abs[v]
         else:
             new_pos_abs = self.pos_abs
             new_pos = self.pos
@@ -562,8 +559,6 @@ class GraphAnimator():
                     new_pos_v = new_pos_abs[v]
                     if len(old_pos_v) == 2 and len(new_pos_v) == 2:
                         current_pos[v] = [old_fac * old_pos_v[i] + new_fac * new_pos_v[i] for i in xrange(2)]
-                    else:
-                        current_pos[v] = np.array([], dtype='float64')
             else:
                 current_pos = new_pos_abs
 
