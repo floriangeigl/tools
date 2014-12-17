@@ -90,8 +90,7 @@ class GraphAnimator():
         self.active_nodes = None
         if self.cmap is None:
             def_cmap = 'gist_rainbow'
-            if self.verbose >= 2:
-                self.print_f('using default cmap:', def_cmap)
+            self.print_f('using default cmap:', def_cmap, verbose=2)
             self.cmap = colormap.get_cmap(def_cmap)
         elif isinstance(self.cmap, str):
             self.cmap = colormap.get_cmap(self.cmap)
@@ -132,10 +131,10 @@ class GraphAnimator():
         result.update({-1: (self.deactivated_color_nodes, -1)})
         return result
 
-    @staticmethod
-    def print_f(*args, **kwargs):
+    def print_f(self, *args, **kwargs):
         kwargs.update({'class_name': 'GraphAnimator'})
-        print_f(*args, **kwargs)
+        if not 'verbose' in kwargs or kwargs['verbose'] >= self.verbose:
+            print_f(*args, **kwargs)
 
     def calc_absolute_positions(self, init_pos=None, reposition=False, network=None, **kwargs):
         if network is None:
@@ -154,9 +153,11 @@ class GraphAnimator():
         max_y -= min_y
         spacing = 0.15 if network.num_vertices() > 10 else 0.3
         for v in network.vertices():
-            if len(pos[v]) == 2:
-                pos[v] = [(pos[v][0] - min_x) / max_x * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2)),
-                          (pos[v][1] - min_y) / max_y * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2))]
+            if len(pos[v]):
+                pos[v] = np.array([(pos[v][0] - min_x) / max_x * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2)),
+                                   (pos[v][1] - min_y) / max_y * self.output_size * (1 - spacing) + (self.output_size * (spacing / 2))])
+            else:
+                pos[v] = np.array([(random.random() * 20) - 10, (random.random() * 20) - 10])
         return pos
 
     def calc_grouped_sfdp_layout(self, network=None, groups_vp='groups', pos=None, mu=3, **kwargs):
@@ -194,18 +195,16 @@ class GraphAnimator():
         if init_pause_time == 0:
             init_pause_time = 2
         init_pause_time = int(math.ceil(init_pause_time))
-        if self.verbose > 0:
-            self.print_f('Framerate:', fps)
-            self.print_f('Iterations per second:', fps / smoothing)
-            self.print_f('Smoothing:', smoothing)
-            self.print_f('Init pause:', init_pause_time)
+        self.print_f('Framerate:', fps, verbose=1)
+        self.print_f('Iterations per second:', fps / smoothing, verbose=1)
+        self.print_f('Smoothing:', smoothing, verbose=1)
+        self.print_f('Init pause:', init_pause_time, verbose=1)
 
         # get colors
         color_mapping = self.get_color_mapping(self.categories, self.fraction_groups, self.cmap)
 
         # get positions
-        if self.verbose >= 1:
-            self.print_f('calc graph layout')
+        self.print_f('calc graph layout', verbose=1)
         try:
             self.pos = self.calc_grouped_sfdp_layout(network=self.network, groups_vp='groups')
         except KeyError:
@@ -215,8 +214,8 @@ class GraphAnimator():
 
         # PLOT
         total_iterations = self.df[self.df_iteration_key].max() - self.df[self.df_iteration_key].min()
-        if self.verbose >= 1:
-            self.print_f('iterations:', total_iterations)
+
+        self.print_f('iterations:', total_iterations, verbose=1)
         if self.draw_fractions:
             self.print_f('draw fractions')
             self.network.vp[self.df_cat_key] = self.network.new_vertex_property('object')
@@ -253,8 +252,7 @@ class GraphAnimator():
             for one_iteration in range(last_iteration + 1, iteration + 1):
                 iteration_idx += 1
                 last_iteration = one_iteration
-                if self.verbose >= 2:
-                    self.print_f('iteration:', one_iteration)
+                self.print_f('iteration:', one_iteration, verbose=2)
                 if one_iteration == iteration:
                     for idx, row in data.iterrows():
                         vertex = row[self.df_vertex_key]
@@ -278,8 +276,7 @@ class GraphAnimator():
                                 if old_size != new_size:
                                     just_copy = False
                             size_map[vertex] = new_size
-                        if self.verbose >= 2:
-                            self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (size_map[vertex] if size_map is not None else ''))
+                        self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (size_map[vertex] if size_map is not None else ''), verbose=2)
                 if iteration_idx % self.plot_each == 0 or iteration_idx == 0 or iteration_idx == total_iterations:
                     current_perc = int(iteration_idx / total_iterations * 100)
                     if iteration_idx > 0:
@@ -287,12 +284,11 @@ class GraphAnimator():
                         est_time = datetime.timedelta(seconds=int(avg_time * (total_iterations - iteration_idx)))
                     else:
                         est_time = '-'
-                    if self.verbose >= 1:
-                        if self.verbose >= 2 or current_perc > last_progress_perc:
-                            last_progress_perc = current_perc
-                            ext = ' | draw edges' if draw_edges else ''
-                            ext += ' | just copy' if just_copy else ''
-                            self.print_f('plot network evolution iteration:', one_iteration, '(' + str(current_perc) + '%)', 'est remain:', est_time, ext)
+                    if self.verbose >= 2 or current_perc > last_progress_perc:
+                        last_progress_perc = current_perc
+                        ext = ' | draw edges' if draw_edges else ''
+                        ext += ' | just copy' if just_copy else ''
+                        self.print_f('plot network evolution iteration:', one_iteration, '(' + str(current_perc) + '%)', 'est remain:', est_time, ext, verbose=1)
                     if iteration_idx == 0 or iteration_idx == total_iterations:
                         for i in xrange(init_pause_time):
                             self.generate_files[one_iteration].extend(
@@ -306,7 +302,7 @@ class GraphAnimator():
                     just_copy = True
 
         text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
-
+        self.print_f('label pictures')
         for label, files in self.generate_files.iteritems():
             label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
             label_drawer = ImageDraw.Draw(label_img)
@@ -322,16 +318,14 @@ class GraphAnimator():
             file_basename = self.filename_basename
         if _platform == "linux" or _platform == "linux2":
             with open(os.devnull, "w") as devnull:
-                if self.verbose >= 1:
-                    self.print_f('create movie...')
+                self.print_f('create movie...', verbose=1)
                 exit_status = subprocess.check_call(
                     ['ffmpeg', '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', str(fps), '-r', str(self.rate), '-y',
                      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi'], stdout=devnull,
                     stderr=devnull)
                 if exit_status == 0:
-                    if self.verbose >= 1:
-                        self.print_f('delete pictures...')
-                        _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+                    self.print_f('delete pictures...', verbose=1)
+                    _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False,
@@ -490,26 +484,33 @@ class GraphAnimator():
             min_vertex_size = max_vertex_size
 
         output_size = (self.output_size, self.output_size)
-        old_pos = None
+        old_pos_abs = None
+        self.print_f('cal pos', verbose=2)
         if self.active_nodes is None:
             self.active_nodes = active_nodes
         if dynamic_pos:
-            old_pos = copy.copy(self.pos_abs)
+            old_pos_abs = copy.copy(self.pos_abs)
             pos_tmp_net = GraphView(self.network, vfilt=lambda x: not self.inactive_value_f(size[x]))
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
             except KeyError:
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos)  # , vweight=self.active_nodes)
+                tmp_deg_map = pos_tmp_net.degree_property_map('total')
+                vweights = pos_tmp_net.new_vertex_property('float')
+                for v in pos_tmp_net.vertices():
+                    vweights[v] = tmp_deg_map[v] * self.active_nodes[v] + 1
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, vweight=vweights)
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             for v in self.network.vertices():
                 old_active = self.active_nodes[v] > 0
                 new_active = active_nodes[v] > 0
                 if old_active and not new_active:
-                    new_pos_abs[v] = old_pos[v]
+                    new_pos_abs[v] = old_pos_abs[v]
                     new_pos[v] = self.pos[v]
                 elif not old_active and new_active:
-                    old_pos[v] = new_pos_abs[v]
+                    old_pos_abs[v] = new_pos_abs[v]
+                elif not old_active and not new_active:
+                    new_pos_abs[v] = old_pos_abs[v]
         else:
             new_pos_abs = self.pos_abs
             new_pos = self.pos
@@ -556,7 +557,7 @@ class GraphAnimator():
             if dynamic_pos:
                 current_pos = self.network.new_vertex_property('vector<float>')
                 for v in self.network.vertices():
-                    old_pos_v = old_pos[v]
+                    old_pos_v = old_pos_abs[v]
                     new_pos_v = new_pos_abs[v]
                     if len(old_pos_v) == 2 and len(new_pos_v) == 2:
                         current_pos[v] = [old_fac * old_pos_v[i] + new_fac * new_pos_v[i] for i in xrange(2)]
@@ -567,6 +568,7 @@ class GraphAnimator():
                 eorder = edges_graph.new_edge_property('float')
                 for e in edges_graph.edges():
                     eorder[e] = np.sum(edge_color[e])
+                print('draw edgegraph')
                 graph_draw(edges_graph, fit_view=False, pos=current_pos, vorder=size, vertex_size=0.0, vertex_fill_color=self.bg_color, vertex_color=self.bg_color,
                            edge_pen_width=1, edge_color=edge_color, output=self.edges_filename, eorder=eorder, output_size=output_size, nodesfirst=True, vertex_pen_width=0.0)
                 plt.close('all')
@@ -578,6 +580,7 @@ class GraphAnimator():
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
+            print('draw nodegraph')
             graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
                        vertex_pie_colors=colors, vertex_fill_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color, output=filename,
                        output_size=output_size, vertex_pen_width=0.0)
