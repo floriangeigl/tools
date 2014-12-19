@@ -325,13 +325,14 @@ class GraphAnimator():
         if _platform == "linux" or _platform == "linux2":
             with open(os.devnull, "w") as devnull:
                 self.print_f('create movie...', verbose=1)
-                p_call = ['ffmpeg', '-r', str(self.rate), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', '1/5', '-r',
-                          str(self.rate), '-y', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi']
+                p_call = ['ffmpeg', '-framerate', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', str(fps), '-r',
+                          str(self.rate), '-y', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi']
+                # '-c:v', 'libx264',
                 self.print_f('call:', p_call, verbose=1)
                 exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
                 if exit_status == 0:
                     self.print_f('delete pictures...', verbose=1)
-                    _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+                    # _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False,
@@ -513,8 +514,8 @@ class GraphAnimator():
                     max_iter = 0
                 else:
                     max_iter = 100
-                # new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, pin=pin, vweight=tmp_deg_map, mu=self.mu, max_iter=max_iter)
-                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, vweight=tmp_deg_map, mu=self.mu, max_iter=max_iter)
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, pin=pin, vweight=tmp_deg_map, mu=self.mu, max_iter=max_iter)
+                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=max_iter)
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             for v in self.network.vertices():
@@ -570,7 +571,7 @@ class GraphAnimator():
                 vertex_shape = "circle"
 
             current_size.a = old_fac * old_size.a + new_fac * size.a
-            if dynamic_pos:
+            if dynamic_pos and not self.output_filenum == 0:
                 current_pos = self.network.new_vertex_property('vector<float>')
                 for v in self.network.vertices():
                     old_pos_v = old_pos_abs[v]
