@@ -325,14 +325,13 @@ class GraphAnimator():
         if _platform == "linux" or _platform == "linux2":
             with open(os.devnull, "w") as devnull:
                 self.print_f('create movie...', verbose=1)
-                p_call = ['ffmpeg', '-framerate', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', str(fps), '-r',
-                          str(self.rate), '-y', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi']
-                # '-c:v', 'libx264',
-                self.print_f('call:', p_call, verbose=1)
+                p_call = ['ffmpeg', '-framerate', str(fps), '-r', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
+                          str(fps), '-r', str(self.rate), '-c:v', 'libx264', '-y', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi']
+                self.print_f('call:', p_call, verbose=2)
                 exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
                 if exit_status == 0:
                     self.print_f('delete pictures...', verbose=1)
-                    # _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+                    _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False,
@@ -474,6 +473,11 @@ class GraphAnimator():
                 else:
                     active_nodes[v] = True
 
+        try:
+            last_edge_color = self.network.ep['edge_color']
+        except KeyError:
+            last_edge_color = edge_color
+
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
         tmp_output_size = self.output_size
         if self.network.num_edges() == 0:
@@ -506,15 +510,16 @@ class GraphAnimator():
                 vweights = pos_tmp_net.new_vertex_property('int')
                 l_cp = label_largest_component(pos_tmp_net, directed=False)
                 pin = pos_tmp_net.new_vertex_property('bool')
+                # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
                 for v in pos_tmp_net.vertices():
-                    vweights[v] = l_cp[v]
-                    pin[v] = all_active_nodes == 1
-                tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
+                    # vweights[v] = l_cp[v]
+                    pin[v] = active_nodes == 1
+
                 if self.output_filenum == 0:
                     max_iter = 0
                 else:
                     max_iter = 100
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, pin=pin, vweight=tmp_deg_map, mu=self.mu, max_iter=max_iter)
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, pin=pin, mu=self.mu, max_iter=max_iter)
                 new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=max_iter)
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
@@ -577,6 +582,7 @@ class GraphAnimator():
                     old_pos_v = old_pos_abs[v]
                     new_pos_v = new_pos_abs[v]
                     if len(old_pos_v) == 2 and len(new_pos_v) == 2:
+                        # TODO: switch to numpy
                         current_pos[v] = [old_fac * old_pos_v[i] + new_fac * new_pos_v[i] for i in xrange(2)]
             else:
                 current_pos = new_pos_abs
@@ -586,8 +592,16 @@ class GraphAnimator():
                 for e in edges_graph.edges():
                     eorder[e] = np.sum(edge_color[e])
                 self.print_f('draw edgegraph', verbose=2)
+                if dynamic_pos:
+                    current_edge_color = edges_graph.new_edge_property('vector<double>')
+                    for e in edges_graph.edges():
+                        current_edge_color[e] = np.array(last_edge_color[e]) * old_fac + np.array(edge_color[e]) * new_fac
+                else:
+                    current_edge_color = edge_color
+
                 graph_draw(edges_graph, fit_view=False, pos=current_pos, vorder=size, vertex_size=0.0, vertex_fill_color=self.bg_color, vertex_color=self.bg_color,
-                           edge_pen_width=1, edge_color=edge_color, output=self.edges_filename, eorder=eorder, output_size=output_size, nodesfirst=True, vertex_pen_width=0.0)
+                           edge_pen_width=1, edge_color=current_edge_color, output=self.edges_filename, eorder=eorder, output_size=output_size, nodesfirst=True,
+                           vertex_pen_width=0.0)
                 plt.close('all')
                 if self.bg_color is not None:
                     bg_img = Image.new("RGB", output_size, self.bg_color)
@@ -608,6 +622,7 @@ class GraphAnimator():
             bg_img.paste(fg_img, None, fg_img)
             bg_img.save(filename, 'PNG')
         self.network.vp['last_node_size'] = size
+        self.network.ep['edge_color'] = edge_color
         if fraction_map is not None:
             self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
         if dynamic_pos:
