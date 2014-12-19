@@ -40,7 +40,7 @@ def print_f(*args, **kwargs):
 class GraphAnimator():
     def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex',
                  df_cat_key=None, df_size_key=None, plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
-                 inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None):
+                 inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -68,6 +68,7 @@ class GraphAnimator():
         self.filename_basename = splited_filename[-1]
         self.tmp_folder_name = 'graph_animator_tmp/'
         self.edges_filename = self.filename_folder + '/' + self.tmp_folder_name + 'edges_' + self.filename_basename
+        self.mu = mu
         if not os.path.isdir(self.filename_folder + '/' + self.tmp_folder_name):
             try:
                 create_folder_structure(self.filename_folder + '/' + self.tmp_folder_name)
@@ -82,6 +83,7 @@ class GraphAnimator():
         self.fraction_groups = fraction_groups
         self.smoothing = smoothing
         self.rate = rate
+        self.generate_files = None
         self.pos = None
         self.pos_abs = None
         self.cmap = cmap
@@ -108,9 +110,8 @@ class GraphAnimator():
         self.pos = None
         self.network = network
 
-    # @staticmethod
     def get_color_mapping(self, categories=None, groups=None, cmap=None):
-        GraphAnimator.print_f('get color mapping')
+        self.print_f('get color mapping', verbose=2)
         if cmap is None:
             cmap = colormap.get_cmap('gist_rainbow')
         if groups and categories:
@@ -120,8 +121,8 @@ class GraphAnimator():
                 num_g_cat = len(g_cat)
                 color_mapping = {i: g_cat_map[random.sample(groups[i], 1)[0]] / num_g_cat for i in sorted(categories)}
             except:
-                GraphAnimator.print_f('Error in getting categories color mapping.', traceback.print_exc())
-                return GraphAnimator.get_color_mapping(categories, cmap=cmap)
+                self.print_f('Error in getting categories color mapping.', traceback.print_exc(), verbose=1)
+                return self.get_color_mapping(categories, cmap=cmap)
         elif categories:
             num_categories = len(categories)
             color_mapping = {i: idx / num_categories for idx, i in enumerate(sorted(categories))}
@@ -133,19 +134,21 @@ class GraphAnimator():
 
     def print_f(self, *args, **kwargs):
         kwargs.update({'class_name': 'GraphAnimator'})
-        if not 'verbose' in kwargs or kwargs['verbose'] >= self.verbose:
+        if 'verbose' not in kwargs or kwargs['verbose'] <= self.verbose:
             print_f(*args, **kwargs)
 
-    def calc_absolute_positions(self, init_pos=None, reposition=False, network=None, **kwargs):
+    def calc_absolute_positions(self, init_pos=None, reposition=False, network=None, mu=None, **kwargs):
         if network is None:
             network = self.network
+        if mu is None:
+            mu = self.mu
         if init_pos is not None:
             if reposition:
-                pos = sfdp_layout(network, pos=init_pos, **kwargs)
+                pos = sfdp_layout(network, pos=init_pos, mu=mu, **kwargs)
             else:
                 pos = copy.copy(init_pos)
         else:
-            pos = sfdp_layout(network, **kwargs)
+            pos = sfdp_layout(network, mu=mu, **kwargs)
         pos_ar = np.array([np.array(pos[v]) for v in network.vertices()])
         max_x, max_y = pos_ar.max(axis=0)
         min_x, min_y = pos_ar.min(axis=0)
@@ -160,9 +163,11 @@ class GraphAnimator():
                 pos[v] = np.array([(random.random() * 20) - 10, (random.random() * 20) - 10])
         return pos
 
-    def calc_grouped_sfdp_layout(self, network=None, groups_vp='groups', pos=None, mu=3, **kwargs):
+    def calc_grouped_sfdp_layout(self, network=None, groups_vp='groups', pos=None, mu=None, **kwargs):
         if network is None:
             network = self.network
+        if mu is None:
+            mu = self.mu
         orig_groups_map = network.vp[groups_vp] if isinstance(groups_vp, str) else groups_vp
         e_weights = network.new_edge_property('float')
         for e in network.edges():
@@ -208,7 +213,7 @@ class GraphAnimator():
         try:
             self.pos = self.calc_grouped_sfdp_layout(network=self.network, groups_vp='groups')
         except KeyError:
-            self.pos = sfdp_layout(self.network)
+            self.pos = sfdp_layout(self.network, mu=self.mu)
         # calc absolute positions
         self.pos_abs = self.calc_absolute_positions(self.pos, network=self.network)
 
@@ -290,6 +295,7 @@ class GraphAnimator():
                         ext += ' | just copy' if just_copy else ''
                         self.print_f('plot network evolution iteration:', one_iteration, '(' + str(current_perc) + '%)', 'est remain:', est_time, ext, verbose=1)
                     if iteration_idx == 0 or iteration_idx == total_iterations:
+                        self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=1)
                         for i in xrange(init_pause_time):
                             self.generate_files[one_iteration].extend(
                                 self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges,
@@ -319,10 +325,10 @@ class GraphAnimator():
         if _platform == "linux" or _platform == "linux2":
             with open(os.devnull, "w") as devnull:
                 self.print_f('create movie...', verbose=1)
-                exit_status = subprocess.check_call(
-                    ['ffmpeg', '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', str(fps), '-r', str(self.rate), '-y',
-                     '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi'], stdout=devnull,
-                    stderr=devnull)
+                p_call = ['ffmpeg', '-r', str(self.rate), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate', '1/5', '-r',
+                          str(self.rate), '-y', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', self.filename_folder + '/' + file_basename.strip('_') + '.avi']
+                self.print_f('call:', p_call, verbose=1)
+                exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
                 if exit_status == 0:
                     self.print_f('delete pictures...', verbose=1)
                     _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
@@ -346,7 +352,7 @@ class GraphAnimator():
         deactivated_color_edges = [0.179, 0.203, 0.210, (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0]
 
         if self.pos is None:
-            self.pos = sfdp_layout(self.network)
+            self.pos = sfdp_layout(self.network, mu=self.mu)
             self.pos_abs = self.calc_absolute_positions(self.pos, network=self.network)
         min_vertex_size_shrinking_factor = 2
 
@@ -387,7 +393,7 @@ class GraphAnimator():
                 edges_graph = self.network
 
         current_size = nodes_graph.new_vertex_property('float')
-        active_nodes = self.network.new_vertex_property('int')
+        active_nodes = self.network.new_vertex_property('bool')
 
         if fraction_map is not None:
             try:
@@ -448,26 +454,24 @@ class GraphAnimator():
                 fraction_mods[v] = tmp_fraction_mod
                 current_fraction_values[v] = tmp_current_fraction_values
                 if self.inactive_fraction_f(new_frac):
-                    active_nodes[v] = 0
                     if edges_graph is not None:
                         for e in edges_graph.vertex(v).all_edges():
                             edge_color[e] = deactivated_color_edges
                             active_edges[e] = 0
                 else:
-                    active_nodes[v] = 1
+                    active_nodes[v] = True
         else:
             for v in nodes_graph.vertices():
                 val = size[v]
                 inactive = self.inactive_value_f(val)
                 colors[v] = color_map(val) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
                 if inactive:
-                    active_nodes[v] = 0
                     if edges_graph is not None:
                         for e in edges_graph.vertex(v).all_edges():
                             edge_color[e] = deactivated_color_edges if not dynamic_pos else (deactivated_color_edges[:3] + [0])
                             active_edges[e] = 0
                 else:
-                    active_nodes[v] = 1
+                    active_nodes[v] = True
 
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
         tmp_output_size = self.output_size
@@ -488,17 +492,29 @@ class GraphAnimator():
         self.print_f('cal pos', verbose=2)
         if self.active_nodes is None:
             self.active_nodes = active_nodes
+        all_active_nodes = self.network.new_vertex_property('bool')
+        for v in self.network.vertices():
+            all_active_nodes[v] = self.active_nodes[v] | active_nodes[v] > 0
         if dynamic_pos:
             old_pos_abs = copy.copy(self.pos_abs)
-            pos_tmp_net = GraphView(self.network, vfilt=lambda x: not self.inactive_value_f(size[x]))
+            pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes)
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
             except KeyError:
                 tmp_deg_map = pos_tmp_net.degree_property_map('total')
-                vweights = pos_tmp_net.new_vertex_property('float')
+                vweights = pos_tmp_net.new_vertex_property('int')
+                l_cp = label_largest_component(pos_tmp_net, directed=False)
+                pin = pos_tmp_net.new_vertex_property('bool')
                 for v in pos_tmp_net.vertices():
-                    vweights[v] = tmp_deg_map[v] * self.active_nodes[v] + 1
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, vweight=vweights)
+                    vweights[v] = l_cp[v]
+                    pin[v] = all_active_nodes == 1
+                tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
+                if self.output_filenum == 0:
+                    max_iter = 0
+                else:
+                    max_iter = 100
+                # new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, pin=pin, vweight=tmp_deg_map, mu=self.mu, max_iter=max_iter)
+                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, vweight=tmp_deg_map, mu=self.mu, max_iter=max_iter)
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             for v in self.network.vertices():
@@ -568,7 +584,7 @@ class GraphAnimator():
                 eorder = edges_graph.new_edge_property('float')
                 for e in edges_graph.edges():
                     eorder[e] = np.sum(edge_color[e])
-                print('draw edgegraph')
+                self.print_f('draw edgegraph', verbose=2)
                 graph_draw(edges_graph, fit_view=False, pos=current_pos, vorder=size, vertex_size=0.0, vertex_fill_color=self.bg_color, vertex_color=self.bg_color,
                            edge_pen_width=1, edge_color=edge_color, output=self.edges_filename, eorder=eorder, output_size=output_size, nodesfirst=True, vertex_pen_width=0.0)
                 plt.close('all')
@@ -580,7 +596,7 @@ class GraphAnimator():
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
-            print('draw nodegraph')
+            self.print_f('draw nodegraph', verbose=2)
             graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
                        vertex_pie_colors=colors, vertex_fill_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color, output=filename,
                        output_size=output_size, vertex_pen_width=0.0)
@@ -596,7 +612,7 @@ class GraphAnimator():
         if dynamic_pos:
             self.pos = new_pos
             self.pos_abs = new_pos_abs
-        self.active_nodes = active_nodes
+        self.active_nodes = all_active_nodes
         return generated_files
 
 
