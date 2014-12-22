@@ -498,9 +498,9 @@ class GraphAnimator():
             all_active_nodes[v] = self.active_nodes[v] + active_nodes[v]
         if dynamic_pos:
             old_pos_abs = copy.copy(self.pos_abs)
-            pos_tmp_net = GraphView(self.network, vfilt=lambda x: all_active_nodes[x] > 0)
+            pos_tmp_net = GraphView(self.network, vfilt=lambda v: all_active_nodes[v] > 0)
             for v in pos_tmp_net.vertices():
-                if self.active_nodes[v] == 0:
+                if self.active_nodes[v] == 0 and active_nodes[v] != 0:
                     x, y = [], []
                     for n in v.all_neighbours():
                         n_pos = self.pos[n]
@@ -516,18 +516,17 @@ class GraphAnimator():
                 # tmp_deg_map = pos_tmp_net.degree_property_map('total')
                 # vweights = pos_tmp_net.new_vertex_property('int')
                 # l_cp = label_largest_component(pos_tmp_net, directed=False)
-                # pin = pos_tmp_net.new_vertex_property('bool')
+                pin = pos_tmp_net.new_vertex_property('bool')
                 # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
-                # for v in pos_tmp_net.vertices():
-                # vweights[v] = 3 if l_cp[v] else (2 if tmp_deg_map[v] > 0 else 1)
-                # pin[v] = active_nodes == 1
+                for v in pos_tmp_net.vertices():
+                    pin[v] = self.active_nodes[v] > 0
 
                 if self.output_filenum == 0:
                     max_iter = 0
                 else:
-                    max_iter = 10
-                # new_pos = sfdp_layout(pos_tmp_net, vweight=all_active_nodes, pos=self.pos, pin=all_active_nodes, mu=self.mu, max_iter=max_iter)
-                new_pos = sfdp_layout(pos_tmp_net, vweight=all_active_nodes, pos=self.pos, mu=self.mu, max_iter=max_iter)
+                    max_iter = 2
+                new_pos = sfdp_layout(pos_tmp_net, vweight=all_active_nodes, pos=self.pos, pin=pin, mu=self.mu)
+                new_pos = sfdp_layout(pos_tmp_net, vweight=all_active_nodes, pos=new_pos, mu=self.mu, max_iter=max_iter)
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             for v in self.network.vertices():
