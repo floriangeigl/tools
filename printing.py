@@ -3,12 +3,18 @@ import datetime
 import sys
 import warnings
 import threading
+import os
 
 
 def print_f(*args, **kwargs):
     try:
         if kwargs['thread_name']:
             print(color_string('[' + str(threading.current_thread().name) + ']'), end='')
+    except KeyError:
+        pass
+    try:
+        if kwargs['process_name']:
+            print(color_string('[' + str(os.getpid()) + ']'), end='')
     except KeyError:
         pass
     print(bcolors.BLUE + '[' + str(datetime.datetime.now().replace(microsecond=0).time()) + ']' + bcolors.ENDC, end='')
