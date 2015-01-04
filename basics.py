@@ -1,5 +1,7 @@
 import os
 import shutil
+
+
 def create_folder_structure(filename):
     d = os.path.dirname(filename)
     if not os.path.exists(d):
