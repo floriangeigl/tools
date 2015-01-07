@@ -515,26 +515,25 @@ class GraphAnimator():
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
             count_new_active = 0
             calced_mean_pos = 0
-            for v in self.network.vertices():
-                if not self.active_nodes[v] and active_nodes[v]:
-                    x, y = [], []
-                    x_abs, y_abs = [], []
-                    count_new_active += 1
-                    for n in filter(lambda neigh: self.active_nodes[neigh], v.all_neighbours()):
-                        n_pos = self.pos[n]
-                        n_pos_abs = self.pos_abs[n]
-                        if len(n_pos) and not any(np.isnan(n_pos)) and not all(i == 0 for i in n_pos):
-                            x.append(n_pos[0])
-                            y.append(n_pos[1])
-                        if len(n_pos_abs) and not any(np.isnan(n_pos_abs)) and not all(i == 0 for i in n_pos):
-                            x_abs.append(n_pos_abs[0])
-                            y_abs.append(n_pos_abs[1])
-                    if len(x):
-                        self.pos[v] = [np.mean(x), np.mean(y)]
-                    if len(x_abs):
-                        self.pos_abs[v] = [np.mean(x_abs), np.mean(y_abs)]
-                    self.print_f('mean pos:', self.pos[v], verbose=2)
-                    calced_mean_pos += 1
+            for v in filter(lambda m: not self.active_nodes[m] and active_nodes[m], self.network.vertices()):
+                x, y = [], []
+                x_abs, y_abs = [], []
+                count_new_active += 1
+                for n in filter(lambda neigh: self.active_nodes[neigh], v.all_neighbours()):
+                    n_pos = self.pos[n].a
+                    n_pos_abs = self.pos_abs[n].a
+                    if len(n_pos) and all(np.invert(np.isnan(n_pos))) and all(n_pos != 0):
+                        x.append(n_pos[0])
+                        y.append(n_pos[1])
+                    if len(n_pos_abs) and all(np.invert(np.isnan(n_pos_abs))) and all(n_pos_abs != 0):
+                        x_abs.append(n_pos_abs[0])
+                        y_abs.append(n_pos_abs[1])
+                if len(x):
+                    self.pos[v] = [np.mean(x), np.mean(y)]
+                if len(x_abs):
+                    self.pos_abs[v] = [np.mean(x_abs), np.mean(y_abs)]
+                self.print_f('mean pos:', self.pos[v], verbose=2)
+                calced_mean_pos += 1
             self.print_f('calced mean pos:', calced_mean_pos, verbose=2)
             self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
             try:
