@@ -606,6 +606,7 @@ class GraphAnimator():
 
             current_size.a = old_fac * old_size.a + new_fac * size.a
             if dynamic_pos:
+                print 'dyn pos!'
                 current_pos = nodes_graph.new_vertex_property('vector<float>')
                 for v in nodes_graph.vertices():
                     if len(self.pos_abs[v].a) == 0:
@@ -617,7 +618,6 @@ class GraphAnimator():
 
             if edges_graph is not None and (smoothing_step == 0 or dynamic_pos):
                 eorder = edges_graph.new_edge_property('float')
-                # eorder.a = np.array([edge_color[e].a[-1] for e in edges_graph.edges()])
                 for e in edges_graph.edges():
                     eorder[e] = edge_color[e].a[-1]
                 if dynamic_pos:
@@ -626,7 +626,7 @@ class GraphAnimator():
                         current_edge_color[e] = last_edge_color[e].a * old_fac + edge_color[e].a * new_fac
                 else:
                     current_edge_color = edge_color
-                self.print_f('draw edgegraph', verbose=2)
+                self.print_f('draw edgegraph', verbose=1)
                 graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=current_pos, fit_view=False, vorder=current_size, vertex_size=0.0,
                            vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=current_edge_color, eorder=eorder, vertex_pen_width=0.0)
                 self.print_f('ok', verbose=2)
@@ -639,7 +639,7 @@ class GraphAnimator():
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
-            self.print_f('draw nodegraph', verbose=2)
+            self.print_f('draw nodegraph', verbose=1)
             graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
                        vertex_pie_colors=colors, vertex_fill_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color,
                        output=filename, output_size=output_size, vertex_pen_width=0.0)
