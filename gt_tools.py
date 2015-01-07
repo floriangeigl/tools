@@ -520,7 +520,7 @@ class GraphAnimator():
                     x, y = [], []
                     x_abs, y_abs = [], []
                     count_new_active += 1
-                    for n in filter(lambda x: self.active_nodes[x], v.all_neighbours()):
+                    for n in filter(lambda neigh: self.active_nodes[neigh], v.all_neighbours()):
                         n_pos = self.pos[n]
                         n_pos_abs = self.pos_abs[n]
                         if len(n_pos) and not any(np.isnan(n_pos)) and not all(i == 0 for i in n_pos):
