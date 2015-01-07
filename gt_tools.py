@@ -606,7 +606,6 @@ class GraphAnimator():
 
             current_size.a = old_fac * old_size.a + new_fac * size.a
             if dynamic_pos:
-                print 'dyn pos!'
                 current_pos = nodes_graph.new_vertex_property('vector<float>')
                 for v in nodes_graph.vertices():
                     if len(self.pos_abs[v].a) == 0:
@@ -651,14 +650,15 @@ class GraphAnimator():
             fg_img = Image.open(filename)
             bg_img.paste(fg_img, None, fg_img)
             bg_img.save(filename, 'PNG')
-            self.network.vp['last_node_size'] = size
-            self.network.ep['edge_color'] = edge_color
-            if fraction_map is not None:
-                self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
-            if dynamic_pos:
-                self.pos = new_pos
-            self.pos_abs = new_pos_abs
-            self.active_nodes.a = all_active_nodes.a
+
+        self.network.vp['last_node_size'] = size
+        self.network.ep['edge_color'] = edge_color
+        if fraction_map is not None:
+            self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
+        if dynamic_pos:
+            self.pos = new_pos
+        self.pos_abs = new_pos_abs
+        self.active_nodes.a = all_active_nodes.a
         return generated_files
 
 
