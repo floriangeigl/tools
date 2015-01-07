@@ -300,8 +300,9 @@ class GraphAnimator():
                         ext += ' | just copy' if just_copy else ''
                         self.print_f('plot network evolution iteration:', one_iteration, '(' + str(current_perc) + '%)', 'est remain:', est_time, ext, verbose=1)
                     if iteration_idx == 0 or iteration_idx == total_iterations:
-                        self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=1)
                         for i in xrange(init_pause_time):
+                            if i == 1:
+                                self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=1)
                             self.generate_files[one_iteration].extend(
                                 self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=i != 0,
                                                                 smoothing=smoothing, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction))
@@ -511,27 +512,7 @@ class GraphAnimator():
         else:
             all_active_nodes.a = self.active_nodes.a | active_nodes.a
         if dynamic_pos:
-            # self.print_f('all active nodes map:', all_active_nodes, '\ngraph', all_active_nodes.get_graph())
-            # self.print_f('filter pos tmp net:', type(all_active_nodes), set(type(all_active_nodes[v]) for v in self.network.vertices()))
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
-            try:
-                new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
-                self.print_f('dyn pos: updated grouped sfdp', verbose=2)
-            except KeyError:
-                self.print_f('dyn pos: update sfdp', verbose=2)
-                # tmp_deg_map = pos_tmp_net.degree_property_map('total')
-                # vweights = pos_tmp_net.new_vertex_property('int')
-                l_cp = label_largest_component(pos_tmp_net, directed=False)
-                pin = pos_tmp_net.new_vertex_property('bool')
-                # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
-                #count_new_active = all_active_nodes.a.sum() - (self.active_nodes.a & active_nodes.a).sum()
-                pin.a = self.active_nodes.a
-                pin.a = pin.a & l_cp.a
-                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu)
-                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=1)
-
-            # calc absolute positions
-            new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             count_new_active = 0
             calced_mean_pos = 0
             for v in self.network.vertices():
@@ -542,18 +523,38 @@ class GraphAnimator():
                     for n in v.all_neighbours():
                         n_pos = self.pos[n]
                         n_pos_abs = self.pos_abs[n]
-                        if len(n_pos):
+                        if len(n_pos) and not any(np.isnan(n_pos)) and not all(i == 0 for i in n_pos):
                             x.append(n_pos[0])
                             y.append(n_pos[1])
+                        if len(n_pos_abs) and not any(np.isnan(n_pos_abs)) and not all(i == 0 for i in n_pos):
                             x_abs.append(n_pos_abs[0])
                             y_abs.append(n_pos_abs[1])
                     if len(x):
-                        self.pos[v] = [np.nanmean(x), np.nanmean(y)]
-                        self.pos_abs[v] = [np.nanmean(x_abs), np.nanmean(y_abs)]
-                        self.print_f('mean pos:', self.pos[v], verbose=2)
-                        calced_mean_pos += 1
+                        self.pos[v] = [np.mean(x), np.mean(y)]
+                    if len(x_abs):
+                        self.pos_abs[v] = [np.mean(x_abs), np.mean(y_abs)]
+                    self.print_f('mean pos:', self.pos[v], verbose=2)
+                    calced_mean_pos += 1
             self.print_f('calced mean pos:', calced_mean_pos, verbose=2)
             self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
+            try:
+                new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
+                self.print_f('dyn pos: updated grouped sfdp', verbose=2)
+            except KeyError:
+                self.print_f('dyn pos: update sfdp', verbose=2)
+                # tmp_deg_map = pos_tmp_net.degree_property_map('total')
+                # vweights = pos_tmp_net.new_vertex_property('int')
+                l_cp = label_largest_component(pos_tmp_net, directed=False)
+                pin = pos_tmp_net.new_vertex_property('bool')
+                # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
+                # count_new_active = all_active_nodes.a.sum() - (self.active_nodes.a & active_nodes.a).sum()
+                pin.a = self.active_nodes.a
+                pin.a = pin.a & l_cp.a
+                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu)
+                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=10)
+
+            # calc absolute positions
+            new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             # for v in self.network.vertices():
             # if not active_nodes[v]:
             # new_pos_abs[v] = self.pos_abs[v]
@@ -608,7 +609,7 @@ class GraphAnimator():
             if dynamic_pos:
                 current_pos = nodes_graph.new_vertex_property('vector<float>')
                 for v in nodes_graph.vertices():
-                    if len(self.pos_abs[v].a) == 0:
+                    if len(self.pos_abs[v].a) == 0 or all(i == 0 for i in self.pos_abs[v].a):
                         self.pos_abs[v] = new_pos_abs[v]
                         self.pos[v] = new_pos[v]
                     current_pos[v] = old_fac * self.pos_abs[v].a + new_fac * new_pos_abs[v].a
@@ -625,7 +626,7 @@ class GraphAnimator():
                         current_edge_color[e] = last_edge_color[e].a * old_fac + edge_color[e].a * new_fac
                 else:
                     current_edge_color = edge_color
-                self.print_f('draw edgegraph', verbose=1)
+                self.print_f('draw edgegraph', verbose=2)
                 graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=current_pos, fit_view=False, vorder=current_size, vertex_size=0.0,
                            vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=current_edge_color, eorder=eorder, vertex_pen_width=0.0)
                 self.print_f('ok', verbose=2)
@@ -638,7 +639,7 @@ class GraphAnimator():
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
-            self.print_f('draw nodegraph', verbose=1)
+            self.print_f('draw nodegraph', verbose=2)
             graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
                        vertex_pie_colors=colors, vertex_fill_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color,
                        output=filename, output_size=output_size, vertex_pen_width=0.0)
@@ -657,8 +658,8 @@ class GraphAnimator():
             self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
         if dynamic_pos:
             self.pos = new_pos
-        self.pos_abs = new_pos_abs
-        self.active_nodes.a = all_active_nodes.a
+            self.pos_abs = new_pos_abs
+            self.active_nodes.a = all_active_nodes.a
         return generated_files
 
 
