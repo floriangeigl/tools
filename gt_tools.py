@@ -337,7 +337,7 @@ class GraphAnimator():
                 exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
                 if exit_status == 0:
                     self.print_f('delete pictures...', verbose=1)
-                    # _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+                    _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False, smoothing=1,
@@ -514,6 +514,23 @@ class GraphAnimator():
             # self.print_f('all active nodes map:', all_active_nodes, '\ngraph', all_active_nodes.get_graph())
             # self.print_f('filter pos tmp net:', type(all_active_nodes), set(type(all_active_nodes[v]) for v in self.network.vertices()))
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
+            try:
+                new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
+                self.print_f('dyn pos: updated grouped sfdp', verbose=2)
+            except KeyError:
+                self.print_f('dyn pos: update sfdp', verbose=2)
+                # tmp_deg_map = pos_tmp_net.degree_property_map('total')
+                # vweights = pos_tmp_net.new_vertex_property('int')
+                l_cp = label_largest_component(pos_tmp_net, directed=False)
+                pin = pos_tmp_net.new_vertex_property('bool')
+                # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
+                pin.a = self.active_nodes.a
+                pin.a = pin.a & l_cp.a
+                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu, max_iter=int((np.log(count_new_active) if count_new_active else 10)))
+                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=1)
+
+            # calc absolute positions
+            new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             count_new_active = 0
             calced_mean_pos = 0
             for v in self.network.vertices():
@@ -536,29 +553,11 @@ class GraphAnimator():
                         calced_mean_pos += 1
             self.print_f('calced mean pos:', calced_mean_pos, verbose=2)
             self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
-            try:
-                new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
-                self.print_f('dyn pos: updated grouped sfdp', verbose=2)
-            except KeyError:
-                self.print_f('dyn pos: update sfdp', verbose=2)
-                # tmp_deg_map = pos_tmp_net.degree_property_map('total')
-                # vweights = pos_tmp_net.new_vertex_property('int')
-                l_cp = label_largest_component(pos_tmp_net, directed=False)
-                pin = pos_tmp_net.new_vertex_property('bool')
-                # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
-                pin.a = self.active_nodes.a
-                pin.a = pin.a & l_cp.a
-                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu, max_iter=int((np.log(count_new_active) if count_new_active else 10)))
-                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=1)
-
-            # calc absolute positions
-            new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
             # for v in self.network.vertices():
             # if not active_nodes[v]:
             # new_pos_abs[v] = self.pos_abs[v]
             # new_pos[v] = self.pos[v]
-            if edges_graph is not None:
-                edges_graph = pos_tmp_net
+            edges_graph = pos_tmp_net
             nodes_graph = GraphView(pos_tmp_net, efilt=self.network.ep['no_edges_filt'])
         else:
             new_pos_abs = self.pos_abs
@@ -632,9 +631,9 @@ class GraphAnimator():
                 plt.close('all')
                 if self.bg_color is not None:
                     bg_img = Image.new("RGB", output_size, self.bg_color)
-                fg_img = Image.open(self.edges_filename)
-                bg_img.paste(fg_img, None, fg_img)
-                bg_img.save(self.edges_filename, 'PNG')
+                    fg_img = Image.open(self.edges_filename)
+                    bg_img.paste(fg_img, None, fg_img)
+                    bg_img.save(self.edges_filename, 'PNG')
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
