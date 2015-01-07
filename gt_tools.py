@@ -524,9 +524,10 @@ class GraphAnimator():
                 l_cp = label_largest_component(pos_tmp_net, directed=False)
                 pin = pos_tmp_net.new_vertex_property('bool')
                 # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
+                #count_new_active = all_active_nodes.a.sum() - (self.active_nodes.a & active_nodes.a).sum()
                 pin.a = self.active_nodes.a
                 pin.a = pin.a & l_cp.a
-                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu, max_iter=int((np.log(count_new_active) if count_new_active else 10)))
+                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu)
                 new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=1)
 
             # calc absolute positions
