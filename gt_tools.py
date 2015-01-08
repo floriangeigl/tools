@@ -161,7 +161,7 @@ class GraphAnimator():
         shift_add = self.output_size * (spacing / 2)
         max_v = np.array([max_x, max_y])
         min_v = np.array([min_x, min_y])
-        mult = 1 / max_v * shift_mult
+        mult = (1 / max_v) * shift_mult
         for v in network.vertices():
             if pos[v]:
                 pos[v].a = (pos[v].a - min_v) * mult + shift_add
@@ -513,51 +513,52 @@ class GraphAnimator():
             all_active_nodes.a = self.active_nodes.a | active_nodes.a
         if dynamic_pos:
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
+            old_pos_update = pos_tmp_net.new_vertex_property('vector<float>')
+            old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
+            for v in pos_tmp_net.vertices():
+                old_pos_update[v] = self.pos[v]
+                old_pos_abs_update[v] = self.pos_abs[v]
+            self.pos = old_pos_update
+            self.pos_abs = old_pos_abs_update
             count_new_active = 0
             calced_mean_pos = 0
-            for v in filter(lambda m: not self.active_nodes[m] and active_nodes[m], self.network.vertices()):
-                x, y = [], []
-                x_abs, y_abs = [], []
+            for v in filter(lambda m: not self.active_nodes[m] and active_nodes[m], pos_tmp_net.vertices()):
+                orig = []
+                abs = []
                 count_new_active += 1
-                for n in filter(lambda neigh: self.active_nodes[neigh], v.all_neighbours()):
-                    n_pos = self.pos[n].a
-                    n_pos_abs = self.pos_abs[n].a
-                    if len(n_pos) and all(np.invert(np.isnan(n_pos))) and all(n_pos != 0):
-                        x.append(n_pos[0])
-                        y.append(n_pos[1])
-                    if len(n_pos_abs) and all(np.invert(np.isnan(n_pos_abs))) and all(n_pos_abs != 0):
-                        x_abs.append(n_pos_abs[0])
-                        y_abs.append(n_pos_abs[1])
-                if len(x):
-                    self.pos[v] = [np.mean(x), np.mean(y)]
-                if len(x_abs):
-                    self.pos_abs[v] = [np.mean(x_abs), np.mean(y_abs)]
+                for n in filter(lambda ln: self.active_nodes[ln], v.all_neighbours()):
+                    orig.append(self.pos[n].a)
+                    abs.append(self.pos_abs[n].a)
+                assert not np.isnan(orig).any()
+                assert not np.isnan(abs).any()
+                if len(orig):
+                    rand_norm = np.random.normal(1, 0.01)
+                    self.pos[v] = np.array(orig).mean(axis=0) * rand_norm
+                    self.pos_abs[v] = np.array(abs).mean(axis=0) * rand_norm
+                else:
+                    self.pos[v] = []
+                    self.pos_abs[v] = []
                 self.print_f('mean pos:', self.pos[v], verbose=2)
                 calced_mean_pos += 1
             self.print_f('calced mean pos:', calced_mean_pos, verbose=2)
-            self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
+            self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=1)
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
             except KeyError:
                 self.print_f('dyn pos: update sfdp', verbose=2)
-                # tmp_deg_map = pos_tmp_net.degree_property_map('total')
-                # vweights = pos_tmp_net.new_vertex_property('int')
-                l_cp = label_largest_component(pos_tmp_net, directed=False)
-                pin = pos_tmp_net.new_vertex_property('bool')
-                # tmp_deg_map = prop_to_size(tmp_deg_map, mi=1, ma=10)
-                # count_new_active = all_active_nodes.a.sum() - (self.active_nodes.a & active_nodes.a).sum()
-                pin.a = self.active_nodes.a
-                pin.a = pin.a & l_cp.a
-                new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu)
-                new_pos = sfdp_layout(pos_tmp_net, pos=new_pos, mu=self.mu, max_iter=10)
+                #pin = pos_tmp_net.new_vertex_property('bool')
+                #pin.a = self.active_nodes.a | ((self.active_nodes.a + 1) % 2)
+                #new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu)
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, max_iter=1)
 
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
-            # for v in self.network.vertices():
-            # if not active_nodes[v]:
-            # new_pos_abs[v] = self.pos_abs[v]
-            # new_pos[v] = self.pos[v]
+            for v in filter(lambda lv: not self.active_nodes[lv], pos_tmp_net.vertices()):
+                if not self.pos_abs[v]:
+                    self.pos_abs[v] = new_pos_abs[v]
+                if not self.pos[v]:
+                    self.pos[v] = new_pos[v]
             edges_graph = pos_tmp_net
             nodes_graph = GraphView(pos_tmp_net, efilt=self.network.ep['no_edges_filt'])
         else:
@@ -608,9 +609,9 @@ class GraphAnimator():
             if dynamic_pos:
                 current_pos = nodes_graph.new_vertex_property('vector<float>')
                 for v in nodes_graph.vertices():
-                    if len(self.pos_abs[v].a) == 0 or all(i == 0 for i in self.pos_abs[v].a):
-                        self.pos_abs[v] = new_pos_abs[v]
-                        self.pos[v] = new_pos[v]
+                    # if len(self.pos_abs[v].a) == 0 or all(i == 0 for i in self.pos_abs[v].a):
+                    # self.pos_abs[v] = new_pos_abs[v]
+                    #    self.pos[v] = new_pos[v]
                     current_pos[v] = old_fac * self.pos_abs[v].a + new_fac * new_pos_abs[v].a
             else:
                 current_pos = self.pos_abs
@@ -639,6 +640,13 @@ class GraphAnimator():
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
             self.print_f('draw nodegraph', verbose=2)
+            colors = nodes_graph.new_vertex_property('vector<float>')
+            for n in nodes_graph.vertices():
+                if self.active_nodes[n]:
+                    colors[n] = [1, 0, 0, 1]
+                else:
+                    colors[n] = [0, 0, 1, 0.5]
+
             graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
                        vertex_pie_colors=colors, vertex_fill_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color,
                        output=filename, output_size=output_size, vertex_pen_width=0.0)
