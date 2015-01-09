@@ -197,10 +197,10 @@ class GraphAnimator():
             tmp_smoothing = fps * smoothing
         smoothing = max(1, smoothing)
         fps *= smoothing
-        init_pause_time = 1.5 * fps / smoothing
+        init_pause_time = 3 * fps / smoothing
 
         if init_pause_time == 0:
-            init_pause_time = 2
+            init_pause_time = 3
         init_pause_time = int(math.ceil(init_pause_time))
         self.print_f('Framerate:', fps, verbose=1)
         self.print_f('Iterations per second:', fps / smoothing, verbose=1)
@@ -400,7 +400,7 @@ class GraphAnimator():
                 self.print_f('Edge picture file does not exist:', self.edges_filename)
                 edges_graph = self.network
 
-        current_size = self.network.new_vertex_property('float')
+        interpolated_size = self.network.new_vertex_property('float')
         active_nodes = self.network.new_vertex_property('bool')
 
         if fraction_map is not None:
@@ -419,7 +419,7 @@ class GraphAnimator():
             vanish_fraction_reduce = nodes_graph.new_vertex_property('float')
             emerge_fraction_increase = nodes_graph.new_vertex_property('float')
             stay_fraction_change = nodes_graph.new_vertex_property('float')
-            current_fraction_values = nodes_graph.new_vertex_property('vector<float>')
+            interpolated_fraction_vals = nodes_graph.new_vertex_property('vector<float>')
             fraction_mods = nodes_graph.new_vertex_property('vector<int>')
             for v in self.network.vertices():
                 new_frac = fraction_map[v]
@@ -460,7 +460,7 @@ class GraphAnimator():
                             tmp_fraction_mod.append(0)
                         tmp_current_fraction_values.append(old_slice_size)
                 fraction_mods[v] = tmp_fraction_mod
-                current_fraction_values[v] = tmp_current_fraction_values
+                interpolated_fraction_vals[v] = tmp_current_fraction_values
                 if self.inactive_fraction_f(new_frac):
                     if edges_graph is not None:
                         for e in edges_graph.vertex(v).all_edges():
@@ -485,6 +485,10 @@ class GraphAnimator():
             last_edge_color = self.network.ep['edge_color']
         except KeyError:
             last_edge_color = edge_color
+        try:
+            last_node_color = self.network.vp['last_node_color']
+        except KeyError:
+            last_node_color = self.network.new_vertex_property('vector<float>')
 
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
         tmp_output_size = self.output_size
@@ -521,18 +525,13 @@ class GraphAnimator():
             count_new_active = 0
             calced_mean_pos = 0
             for v in filter(lambda m: not self.active_nodes[m] and active_nodes[m], pos_tmp_net.vertices()):
-                orig = []
-                abs = []
                 count_new_active += 1
-                for n in filter(lambda ln: self.active_nodes[ln], v.all_neighbours()):
-                    orig.append(self.pos[n].a)
-                    abs.append(self.pos_abs[n].a)
-                assert not np.isnan(orig).any()
-                assert not np.isnan(abs).any()
-                if len(orig):
+                orig_abs_pos = [(self.pos[n].a, self.pos_abs[n].a) for n in filter(lambda ln: self.active_nodes[ln], v.all_neighbours())]
+                if len(orig_abs_pos):
+                    orig, abs_orig = zip(*orig_abs_pos)
                     rand_norm = np.random.normal(1, 0.01, 2)
                     self.pos[v] = np.array(orig).mean(axis=0) * rand_norm
-                    self.pos_abs[v] = np.array(abs).mean(axis=0) * rand_norm
+                    self.pos_abs[v] = np.array(abs_orig).mean(axis=0) * rand_norm
                 else:
                     self.pos[v] = []
                     self.pos_abs[v] = []
@@ -581,7 +580,7 @@ class GraphAnimator():
             if fraction_map is not None:
                 for v in nodes_graph.vertices():
                     tmp = []
-                    for mod, val in zip(list(fraction_mods[v]), list(current_fraction_values[v])):
+                    for mod, val in zip(list(fraction_mods[v]), list(interpolated_fraction_vals[v])):
                         if mod == 0:
                             val += stay_fraction_change[v]
                         elif mod == 1:
@@ -592,30 +591,33 @@ class GraphAnimator():
                             self.print_f('ERROR: Fraction modification unknown')
                             raise Exception
                         tmp.append(val)
-                    current_fraction_values[v] = tmp
+                    interpolated_fraction_vals[v] = tmp
                 vertex_shape = "pie"
+                interpolated_color = colors
             else:
-                current_fraction_values = [0.75, 0.25]
+                interpolated_fraction_vals = []
                 vertex_shape = "circle"
+                interpolated_color = nodes_graph.new_vertex_property('vector<float>')
+                interpolated_color.set_2d_array(last_node_color.get_2d_array((0, 1, 2, 3)) * old_fac + colors.get_2d_array((0, 1, 2, 3)) * new_fac)
 
-            current_size.a = old_fac * old_size.a + new_fac * size.a
+            interpolated_size.a = old_fac * old_size.a + new_fac * size.a
             if dynamic_pos:
-                current_pos = nodes_graph.new_vertex_property('vector<float>')
-                current_pos.set_2d_array(old_fac * self.pos_abs.get_2d_array((0, 1)) + new_fac * new_pos_abs.get_2d_array((0, 1)))
+                interpolated_pos = nodes_graph.new_vertex_property('vector<float>')
+                interpolated_pos.set_2d_array(old_fac * self.pos_abs.get_2d_array((0, 1)) + new_fac * new_pos_abs.get_2d_array((0, 1)))
             else:
-                current_pos = self.pos_abs
+                interpolated_pos = self.pos_abs
 
             if edges_graph is not None and (smoothing_step == 0 or dynamic_pos):
                 eorder = edges_graph.new_edge_property('float')
                 eorder.a = edge_color.get_2d_array([3])[0]
                 if dynamic_pos:
-                    current_edge_color = edges_graph.new_edge_property('vector<float>')
-                    current_edge_color.set_2d_array(last_edge_color.get_2d_array((0, 1, 2, 3)) * old_fac + edge_color.get_2d_array((0, 1, 2, 3)) * new_fac)
+                    interpolated_edge_color = edges_graph.new_edge_property('vector<float>')
+                    interpolated_edge_color.set_2d_array(last_edge_color.get_2d_array((0, 1, 2, 3)) * old_fac + edge_color.get_2d_array((0, 1, 2, 3)) * new_fac)
                 else:
-                    current_edge_color = edge_color
+                    interpolated_edge_color = edge_color
                 self.print_f('draw edgegraph', verbose=2)
-                graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=current_pos, fit_view=False, vorder=current_size, vertex_size=0.0,
-                           vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=current_edge_color, eorder=eorder, vertex_pen_width=0.0)
+                graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=0.0,
+                           vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0)
                 self.print_f('ok', verbose=2)
                 plt.close('all')
                 if self.bg_color is not None:
@@ -629,9 +631,8 @@ class GraphAnimator():
             self.print_f('draw nodegraph', verbose=2)
             # colors = nodes_graph.new_vertex_property('vector<float>')
             # colors.a = np.array([np.array([1, 0, 0, 1]) if self.active_nodes[n] else np.array([0, 0, 1, 0.5]) for n in nodes_graph.vertices()])
-            graph_draw(nodes_graph, fit_view=False, pos=current_pos, vorder=current_size, vertex_size=current_size, vertex_pie_fractions=current_fraction_values,
-                       vertex_pie_colors=colors, vertex_fill_color=colors, vertex_shape=vertex_shape, edge_pen_width=1, edge_color=edge_color,
-                       output=filename, output_size=output_size, vertex_pen_width=0.0)
+            graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals, vertex_pie_colors=interpolated_color, vertex_fill_color=interpolated_color, vertex_shape=vertex_shape, output=filename,
+                       output_size=output_size, vertex_pen_width=0.0, vertex_color=interpolated_color)
             self.print_f('ok', verbose=2)
             generated_files.append(filename)
             plt.close('all')
@@ -643,6 +644,7 @@ class GraphAnimator():
 
         self.network.vp['last_node_size'] = size
         self.network.ep['edge_color'] = edge_color
+        self.network.vp['last_node_color'] = colors
         if fraction_map is not None:
             self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
         if dynamic_pos:
