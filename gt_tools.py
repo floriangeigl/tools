@@ -539,17 +539,16 @@ class GraphAnimator():
                 self.print_f('mean pos:', self.pos[v], verbose=2)
                 calced_mean_pos += 1
             self.print_f('calced mean pos:', calced_mean_pos, verbose=2)
-            self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=1)
+            self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
             except KeyError:
                 self.print_f('dyn pos: update sfdp', verbose=2)
-                pin = pos_tmp_net.new_vertex_property('bool')
-                pin.a = self.active_nodes.a
-                # groups = pos_tmp_net.new_vertex_property('int')
-                #groups.a = label_largest_component(pos_tmp_net).a.astype('int32')
-                #new_pos = sfdp_layout(pos_tmp_net, pin=pin, pos=self.pos, mu=self.mu, multilevel=False)
+                #l = label_largest_component(pos_tmp_net)
+                #l.a = self.active_nodes.a | l.a
+                #new_pos = sfdp_layout(pos_tmp_net, pin=l, pos=self.pos, mu=self.mu, multilevel=False, epsilon=0.1)
+                # new_pos = sfdp_layout(pos_tmp_net, pin=l, pos=new_pos, mu=self.mu, multilevel=False)
                 new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False)  # , max_iter=max(int(count_new_active / pos_tmp_net.num_vertices() * 100), 1))
 
             # calc absolute positions
