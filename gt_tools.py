@@ -530,7 +530,7 @@ class GraphAnimator():
                 assert not np.isnan(orig).any()
                 assert not np.isnan(abs).any()
                 if len(orig):
-                    rand_norm = np.random.normal(1, 0.01)
+                    rand_norm = np.random.normal(1, 0.01, 2)
                     self.pos[v] = np.array(orig).mean(axis=0) * rand_norm
                     self.pos_abs[v] = np.array(abs).mean(axis=0) * rand_norm
                 else:
@@ -545,23 +545,15 @@ class GraphAnimator():
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
             except KeyError:
                 self.print_f('dyn pos: update sfdp', verbose=2)
-                #l = label_largest_component(pos_tmp_net)
-                #l.a = self.active_nodes.a | l.a
-                #new_pos = sfdp_layout(pos_tmp_net, pin=l, pos=self.pos, mu=self.mu, multilevel=False, epsilon=0.1)
-                # new_pos = sfdp_layout(pos_tmp_net, pin=l, pos=new_pos, mu=self.mu, multilevel=False)
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False)  # , max_iter=max(int(count_new_active / pos_tmp_net.num_vertices() * 100), 1))
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False)
 
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
-            # all_pos = np.array([self.pos[v].a for v in filter(lambda lv: self.active_nodes[lv], pos_tmp_net.vertices())])
-            # center_pos = all_pos.min(axis=0) + ((all_pos.max(axis=0) - all_pos.min(axis=0))/2)
             for v in filter(lambda lv: not self.active_nodes[lv], pos_tmp_net.vertices()):
                 if not self.pos_abs[v]:
                     self.pos_abs[v] = new_pos_abs[v].a * np.random.normal(1, 0.01, 2)
-                    #self.pos_abs[v] = [self.output_size / 2, self.output_size / 2]
                 if not self.pos[v]:
                     self.pos[v] = new_pos[v].a * np.random.normal(1, 0.01, 2)
-                    #self.pos[v] = center_pos
             edges_graph = pos_tmp_net
             nodes_graph = GraphView(pos_tmp_net, efilt=self.network.ep['no_edges_filt'])
         else:
@@ -581,8 +573,6 @@ class GraphAnimator():
         if copy_new_size:
             old_size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
             self.network.vp['last_node_size'] = old_size
-        # print 'nodes graph:', nodes_graph.num_vertices(), nodes_graph.num_edges()
-        # print 'edges graph:', edges_graph.num_vertices(), edges_graph.num_edges()
 
         for smoothing_step in range(smoothing):
             fac = (smoothing_step + 1) / smoothing
