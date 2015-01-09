@@ -644,7 +644,7 @@ class GraphAnimator():
 
         self.network.vp['last_node_size'] = size
         self.network.ep['edge_color'] = edge_color
-        self.network.vp['last_node_color'] = colors
+        self.network.vp['last_node_color'] = copy.copy(colors)
         if fraction_map is not None:
             self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
         if dynamic_pos:
