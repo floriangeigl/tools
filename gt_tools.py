@@ -544,7 +544,7 @@ class GraphAnimator():
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
             except KeyError:
                 self.print_f('dyn pos: update sfdp', verbose=2)
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False)
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False, epsilon=0.1)
 
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
