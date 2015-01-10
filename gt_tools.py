@@ -544,7 +544,14 @@ class GraphAnimator():
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
             except KeyError:
                 self.print_f('dyn pos: update sfdp', verbose=2)
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False, epsilon=0.1)
+                #v_weight = pos_tmp_net.new_vertex_property('float')
+                #deg_map = pos_tmp_net.degree_property_map('total')
+                #v_weight.a = self.active_nodes.a.astype('float')/2 + 1
+                #e_weight = pos_tmp_net.new_edge_property('float')
+                #for e in pos_tmp_net.edges():
+                #    e_weight[e] = 1/(deg_map[e.source()] + deg_map[e.target()])
+                # e_weight.a = np.array([deg_map[e.source()] + deg_map[e.target()] for e in pos_tmp_net.edges()])
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False)#, epsilon=0.1)
 
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
