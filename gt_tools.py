@@ -38,9 +38,8 @@ def print_f(*args, **kwargs):
 
 
 class GraphAnimator():
-    def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None,
-                 df_size_key=None, plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
-                 inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3):
+    def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None, df_size_key=None, plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
+                 inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3, mark_new_active_nodes=False):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -78,6 +77,7 @@ class GraphAnimator():
                 raise Exception
         self.verbose = verbose
         self.plot_each = plot_each
+        self.mark_new_active_nodes = mark_new_active_nodes
         self.fps = fps
         self.output_size = output_size
         self.bg_color = bg_color
@@ -314,13 +314,29 @@ class GraphAnimator():
         text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
         self.print_f('label pictures')
         for label, files in self.generate_files.iteritems():
-            label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
-            label_drawer = ImageDraw.Draw(label_img)
-            label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, 255))
-            for img_fname in files:
-                img = Image.open(img_fname)
-                img.paste(label_img, (0, 0), label_img)
-                img.save(img_fname)
+            if len(files) > 5:
+                # blend-in and out label
+                alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
+                alpha_values /= alpha_values.max()
+                alpha_values *= (1 + (1 / len(files)))
+                alpha_values = np.array([min(1, i) for i in alpha_values])
+                for img_idx, img_fname in enumerate(files):
+                    label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
+                    label_drawer = ImageDraw.Draw(label_img)
+                    #print 'alpha val:', int(255 * alpha_values[img_idx])
+                    label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, int(255 * alpha_values[img_idx])))
+                    img = Image.open(img_fname)
+                    img.paste(label_img, (0, 0), label_img)
+                    img.save(img_fname)
+            else:
+                # no blending of label
+                label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
+                label_drawer = ImageDraw.Draw(label_img)
+                label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, 255))
+                for img_idx, img_fname in enumerate(files):
+                    img = Image.open(img_fname)
+                    img.paste(label_img, (0, 0), label_img)
+                    img.save(img_fname)
 
         if self.filename_basename.endswith('.png'):
             file_basename = self.filename_basename[:-4]
@@ -517,6 +533,9 @@ class GraphAnimator():
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
             old_pos_update = pos_tmp_net.new_vertex_property('vector<float>')
             old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
+            if self.mark_new_active_nodes:
+                colors = nodes_graph.new_vertex_property('vector<float>')
+                colors.a = np.array([np.array([1, 0, 0, 0.75]) if self.active_nodes[n] else np.array([0, 0, 1, 0.75]) for n in nodes_graph.vertices()])
             for v in pos_tmp_net.vertices():
                 old_pos_update[v] = self.pos[v]
                 old_pos_abs_update[v] = self.pos_abs[v]
@@ -546,12 +565,12 @@ class GraphAnimator():
                 self.print_f('dyn pos: update sfdp', verbose=2)
                 #v_weight = pos_tmp_net.new_vertex_property('float')
                 #deg_map = pos_tmp_net.degree_property_map('total')
-                #v_weight.a = self.active_nodes.a.astype('float')/2 + 1
+                #v_weight.a = self.active_nodes.a.astype('float') * 0.1 + 0.001
                 #e_weight = pos_tmp_net.new_edge_property('float')
                 #for e in pos_tmp_net.edges():
                 #    e_weight[e] = 1/(deg_map[e.source()] + deg_map[e.target()])
                 # e_weight.a = np.array([deg_map[e.source()] + deg_map[e.target()] for e in pos_tmp_net.edges()])
-                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False)#, epsilon=0.1)
+                new_pos = sfdp_layout(pos_tmp_net, pos=self.pos, mu=self.mu, multilevel=False, epsilon=0.1)
 
             # calc absolute positions
             new_pos_abs = self.calc_absolute_positions(new_pos, network=pos_tmp_net)
@@ -579,11 +598,17 @@ class GraphAnimator():
         if copy_new_size:
             old_size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
             self.network.vp['last_node_size'] = old_size
-
+        new_pos_abs_a = new_pos_abs.get_2d_array((0, 1))
+        #spline_mult = np.array([np.random.normal(0, 0.005, len(new_pos_abs_a[0])), np.random.normal(0, 0.005, len(new_pos_abs_a[0]))])
+        #spline_facs = np.array([((smoothing) / 2) - abs(smoothing_step - (smoothing / 2)) for smoothing_step in range(smoothing)])
+        #spline_facs /= spline_facs.max()
+        #spline_facs += 1
+        #print spline_facs
         for smoothing_step in range(smoothing):
             fac = (smoothing_step + 1) / smoothing
             old_fac = 1 - fac
             new_fac = fac
+            #spline_fac = spline_facs[smoothing_step]
             if fraction_map is not None:
                 for v in nodes_graph.vertices():
                     tmp = []
@@ -611,6 +636,9 @@ class GraphAnimator():
             if dynamic_pos:
                 interpolated_pos = nodes_graph.new_vertex_property('vector<float>')
                 interpolated_pos.set_2d_array(old_fac * self.pos_abs.get_2d_array((0, 1)) + new_fac * new_pos_abs.get_2d_array((0, 1)))
+                #if False:
+                #    interpolated_pos_a = interpolated_pos.get_2d_array((0, 1))
+                #    interpolated_pos.set_2d_array(interpolated_pos_a * ((spline_fac * spline_mult) + 1))
             else:
                 interpolated_pos = self.pos_abs
 
@@ -636,8 +664,6 @@ class GraphAnimator():
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
             self.print_f('draw nodegraph', verbose=2)
-            # colors = nodes_graph.new_vertex_property('vector<float>')
-            # colors.a = np.array([np.array([1, 0, 0, 1]) if self.active_nodes[n] else np.array([0, 0, 1, 0.5]) for n in nodes_graph.vertices()])
             graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals, vertex_pie_colors=interpolated_color, vertex_fill_color=interpolated_color, vertex_shape=vertex_shape, output=filename,
                        output_size=output_size, vertex_pen_width=0.0, vertex_color=interpolated_color)
             self.print_f('ok', verbose=2)
