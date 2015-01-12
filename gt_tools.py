@@ -534,8 +534,8 @@ class GraphAnimator():
             old_pos_update = pos_tmp_net.new_vertex_property('vector<float>')
             old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
             if self.mark_new_active_nodes:
-                colors = nodes_graph.new_vertex_property('vector<float>')
-                colors.set_2d_array(np.array([np.array([1, 0, 0, 1]) if self.active_nodes[n] else np.array([0, 0, 1, 1]) for n in nodes_graph.vertices()]).T)
+                colors = pos_tmp_net.new_vertex_property('vector<float>')
+                colors.set_2d_array(np.array([np.array([1.0, 0.0, 0.0, 1.0]) if self.active_nodes[n] else np.array([0.0, 0.0, 1.0, 1.0]) for n in pos_tmp_net.vertices()]).T)
             for v in pos_tmp_net.vertices():
                 old_pos_update[v] = self.pos[v]
                 old_pos_abs_update[v] = self.pos_abs[v]
@@ -630,7 +630,7 @@ class GraphAnimator():
                 interpolated_fraction_vals = []
                 vertex_shape = "circle"
                 interpolated_color = nodes_graph.new_vertex_property('vector<float>')
-                interpolated_color.set_2d_array(last_node_color.get_2d_array((0, 1, 2, 3)) * old_fac + colors.get_2d_array((0, 1, 2, 3)) * new_fac)
+                interpolated_color.set_2d_array(new_fac * colors.get_2d_array((0, 1, 2, 3)) + old_fac * last_node_color.get_2d_array((0, 1, 2, 3)))
 
             interpolated_size.a = old_fac * old_size.a + new_fac * size.a
             if dynamic_pos:
