@@ -535,7 +535,7 @@ class GraphAnimator():
             old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
             if self.mark_new_active_nodes:
                 colors = pos_tmp_net.new_vertex_property('vector<float>')
-                colors.set_2d_array(np.array([np.array([1.0, 0.0, 0.0, 1.0]) if self.active_nodes[n] else np.array([0.0, 0.0, 1.0, 1.0]) for n in pos_tmp_net.vertices()]).T)
+                colors.set_2d_array(np.array([np.array([0.0, 0.0, 1.0, 1.0]) if self.active_nodes[n] else np.array([1.0, 0.0, 0.0, 1.0]) for n in pos_tmp_net.vertices()]).T)
             for v in pos_tmp_net.vertices():
                 old_pos_update[v] = self.pos[v]
                 old_pos_abs_update[v] = self.pos_abs[v]
