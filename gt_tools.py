@@ -652,14 +652,15 @@ class GraphAnimator():
                     interpolated_edge_color = edge_color
                 self.print_f('draw edgegraph', verbose=2)
                 graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=0.0,
-                           vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0)
+                           vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0,
+                           bg_color=self.bg_color)
                 self.print_f('ok', verbose=2)
                 plt.close('all')
-                if self.bg_color is not None:
-                    bg_img = Image.new("RGB", output_size, self.bg_color)
-                    fg_img = Image.open(self.edges_filename)
-                    bg_img.paste(fg_img, None, fg_img)
-                    bg_img.save(self.edges_filename, 'PNG')
+                #if self.bg_color is not None:
+                #    bg_img = Image.new("RGB", output_size, self.bg_color)
+                #    fg_img = Image.open(self.edges_filename)
+                #    bg_img.paste(fg_img, None, fg_img)
+                #    bg_img.save(self.edges_filename, 'PNG')
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
