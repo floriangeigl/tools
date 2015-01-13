@@ -347,8 +347,8 @@ class GraphAnimator():
         text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
         self.print_f('label pictures...')
         for idx, (label, files) in enumerate(self.generate_files.iteritems()):
-            if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
-                print 10 - int((idx / len(self.generate_files.keys())) * 10),
+            # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
+            # print 10 - int((idx / len(self.generate_files.keys())) * 10),
             if len(files) > 5:
                 # blend-in and out label
                 alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
@@ -404,10 +404,10 @@ class GraphAnimator():
             return generated_files
         default_edge_alpha = min(1, (1 / np.log2(self.network.num_edges()) if self.network.num_edges() > 0 else 1))
         default_edge_color = [0.179, 0.203, 0.210, default_edge_alpha]
-        deactivated_color_edges = [0.179, 0.203, 0.210, (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0]
+        #default_edge_color = [0.179, 0.203, 0.210, 0]
+        deactivated_edge_color = [0.179, 0.203, 0.210, (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0]
 
         min_vertex_size_shrinking_factor = 2
-
         size = self.network.new_vertex_property('float')
         if not infer_size_from_fraction and size_map is None or (infer_size_from_fraction and fraction_map is None):
             infer_size_from_fraction = False
@@ -489,10 +489,14 @@ class GraphAnimator():
                 if self.inactive_fraction_f(new_frac):
                     if edges_graph is not None:
                         for e in edges_graph.vertex(v).all_edges():
-                            edge_color[e] = deactivated_color_edges
+                            edge_color[e] = [0, 0, 0, 0] if dynamic_pos else deactivated_edge_color
                             active_edges[e] = False
                 else:
                     active_nodes[v] = True
+                    if edges_graph is not None and edge_map is not None:
+                        for e in filter(lambda le: le not in edge_map, edges_graph.vertex(v).all_edges()):
+                            edge_color[e] = [0, 0, 0, 0] if dynamic_pos else deactivated_edge_color
+                            active_edges[e] = False
         else:
             for v in self.network.vertices():
                 val = size[v]
@@ -500,14 +504,14 @@ class GraphAnimator():
                 colors[v] = color_map(val) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
                 if inactive:
                     if edges_graph is not None:
-                        for e in self.network.vertex(v).all_edges():
-                            edge_color[e] = deactivated_color_edges if not dynamic_pos else [0,0,0,0]
+                        for e in edges_graph.vertex(v).all_edges():
+                            edge_color[e] = [0, 0, 0, 0] if dynamic_pos else deactivated_edge_color
                             active_edges[e] = False
                 else:
                     active_nodes[v] = True
                     if edges_graph is not None and edge_map is not None:
-                        for e in filter(lambda le: le not in edge_map, self.network.vertex(v).all_edges()):
-                            edge_color[e] = deactivated_color_edges if not dynamic_pos else [0, 0, 0, 0]
+                        for e in filter(lambda le: le not in edge_map, edges_graph.vertex(v).all_edges()):
+                            edge_color[e] = [0, 0, 0, 0] if dynamic_pos else deactivated_edge_color
                             active_edges[e] = False
 
         if self.first_iteration:
