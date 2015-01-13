@@ -96,6 +96,7 @@ class GraphAnimator():
         self.inactive_fraction_f = inactive_fraction_f
         self.inactive_value_f = inactive_value_f
         self.active_nodes = None
+        self.active_edges = None
         if self.cmap is None:
             def_cmap = 'gist_rainbow'
             self.print_f('using default cmap:', def_cmap, verbose=2)
@@ -232,7 +233,6 @@ class GraphAnimator():
         self.print_f('iterations:', total_iterations, verbose=1)
         if self.draw_fractions:
             self.print_f('draw fractions')
-            #TODO: clean up df_cat_key => "fractions"
             self.network.vp[self.df_cat_key] = self.network.new_vertex_property('object')
             fractions_vp = self.network.vp[self.df_cat_key]
             for v in self.network.vertices():
@@ -277,6 +277,7 @@ class GraphAnimator():
         last_progress_perc = -1
         iteration_idx = -1
         self.generate_files = defaultdict(list)
+        active_edges = set() if self.df_edges_key is not None else None
         for iteration, data in grouped_by_iteration:
             for one_iteration in range(last_iteration + 1, iteration + 1):
                 iteration_idx += 1
@@ -305,6 +306,8 @@ class GraphAnimator():
                                 if old_size != new_size:
                                     just_copy = False
                             size_map[vertex] = new_size
+                        if active_edges is not None:
+                            active_edges.update(row[self.df_edges_key])
                         self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (size_map[vertex] if size_map is not None else ''), verbose=2)
                 if iteration_idx % self.plot_each == 0 or iteration_idx == 0 or iteration_idx == total_iterations:
                     current_perc = int(iteration_idx / total_iterations * 100)
@@ -324,11 +327,13 @@ class GraphAnimator():
                                 self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=1)
                             self.generate_files[one_iteration].extend(
                                 self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=i != 0,
-                                                                smoothing=smoothing, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction))
+                                                                smoothing=smoothing, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction,
+                                                                edge_map=active_edges))
                     else:
                         self.generate_files[one_iteration].extend(
                             self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, smoothing=smoothing,
-                                                            just_copy_last=just_copy, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction))
+                                                            just_copy_last=just_copy, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction,
+                                                            edge_map=active_edges))
                     if self.pause_after_iteration > 0:
                         last_img_fn = self.generate_files[one_iteration][-1]
                         for pause_pic in range(self.pause_after_iteration*fps):
@@ -340,8 +345,10 @@ class GraphAnimator():
                     just_copy = True
 
         text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
-        self.print_f('label pictures')
-        for label, files in self.generate_files.iteritems():
+        self.print_f('label pictures...')
+        for idx, (label, files) in enumerate(self.generate_files.iteritems()):
+            if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
+                print 10 - int((idx / len(self.generate_files.keys())) * 10),
             if len(files) > 5:
                 # blend-in and out label
                 alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
@@ -351,7 +358,6 @@ class GraphAnimator():
                 for img_idx, img_fname in enumerate(files):
                     label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
                     label_drawer = ImageDraw.Draw(label_img)
-                    #print 'alpha val:', int(255 * alpha_values[img_idx])
                     label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, int(255 * alpha_values[img_idx])))
                     img = Image.open(img_fname)
                     img.paste(label_img, (0, 0), label_img)
@@ -384,7 +390,7 @@ class GraphAnimator():
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False, smoothing=1,
-                                   dynamic_pos=False, infer_size_from_fraction=True):
+                                   dynamic_pos=False, infer_size_from_fraction=True, edge_map=None):
         generated_files = []
         if just_copy_last:
             min_filenum = self.output_filenum
@@ -495,10 +501,14 @@ class GraphAnimator():
                 if inactive:
                     if edges_graph is not None:
                         for e in self.network.vertex(v).all_edges():
-                            edge_color[e] = deactivated_color_edges if not dynamic_pos else (deactivated_color_edges[:3] + [0])
+                            edge_color[e] = deactivated_color_edges if not dynamic_pos else [0,0,0,0]
                             active_edges[e] = False
                 else:
                     active_nodes[v] = True
+                    if edges_graph is not None and edge_map is not None:
+                        for e in filter(lambda le: le not in edge_map, self.network.vertex(v).all_edges()):
+                            edge_color[e] = deactivated_color_edges if not dynamic_pos else [0, 0, 0, 0]
+                            active_edges[e] = False
 
         if self.first_iteration:
             last_edge_color = edge_color
