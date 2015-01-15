@@ -429,13 +429,14 @@ class GraphAnimator():
         colors = self.network.vp['node_color']
         interpolated_size = self.network.new_vertex_property('float')
         active_nodes = self.network.new_vertex_property('bool')
-        edge_color = self.network.new_edge_property('vector<float>')
         active_edges = self.network.new_edge_property('bool')
-        active_edges.a = [1] * self.network.num_edges()
-        edge_color.set_2d_array(np.array([np.array(default_edge_color) for i in range(self.network.num_edges())]).T)
+        edge_color = self.network.new_edge_property('vector<float>')
+        if self.network.num_edges() > 0:
+            edge_color.set_2d_array(np.array([np.array(default_edge_color) for i in range(self.network.num_edges())]).T)
+            active_edges.a = np.array([1] * len(active_edges.a))
 
         nodes_graph = GraphView(self.network, efilt=self.network.ep['no_edges_filt'])
-        edge_graph = None
+        edges_graph = None
         if draw_edges or dynamic_pos:
             edges_graph = self.network
 
@@ -659,8 +660,9 @@ class GraphAnimator():
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
             self.print_f('draw nodegraph', verbose=2)
-            graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals, vertex_pie_colors=interpolated_color, vertex_fill_color=interpolated_color, vertex_shape=vertex_shape, output=filename,
-                       output_size=output_size, vertex_pen_width=0.0, vertex_color=interpolated_color)
+            graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals,
+                       vertex_pie_colors=interpolated_color, vertex_fill_color='blue' if self.draw_fractions else interpolated_color, vertex_shape=vertex_shape, output=filename,
+                       output_size=output_size, vertex_pen_width=0.0, vertex_color='blue' if self.draw_fractions else interpolated_color)
             self.print_f('ok', verbose=2)
             generated_files.append(filename)
             plt.close('all')

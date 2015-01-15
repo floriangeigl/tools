@@ -1,11 +1,10 @@
 from __future__ import division
 from sys import platform as _platform
 import matplotlib
-import numpy as np
-
 if _platform == "linux" or _platform == "linux2":
     matplotlib.use('Agg')
 import matplotlib.pylab as plt
+import numpy as np
 import pandas as pd
 import printing
 import basics
