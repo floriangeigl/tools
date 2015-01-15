@@ -1,4 +1,4 @@
 tools
 =====
 
-Collection of some tools I frequently need
+Collection of some tools
