@@ -390,7 +390,7 @@ class GraphAnimator():
         if _platform == "linux" or _platform == "linux2":
             with open(os.devnull, "w") as devnull:
                 self.print_f('create movie of', sum(map(len, self.generate_files.values())), 'pictures', verbose=1)
-                p_call = ['ffmpeg', '-framerate', str(fps), '-r', str(fps), '-current_year', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
+                p_call = ['ffmpeg', '-framerate', str(fps), '-r', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
                           str(fps), '-r', str(self.rate), '-c:v', 'libx264', '-y', '-pix_fmt', 'yuv420p',
                           self.filename_folder + '/' + file_basename.strip('_') + '.avi']
                 self.print_f('call:', p_call, verbose=2)
