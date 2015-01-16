@@ -508,10 +508,11 @@ class GraphAnimator():
                             edge_color[e] = [0, 0, 0, 0] if dynamic_pos else deactivated_edge_color
                             active_edges[e] = False
         else:
+            size_norm = prop_to_size(size, mi=0, ma=1, power=1)
             for v in self.network.vertices():
                 val = size[v]
                 inactive = self.inactive_value_f(val)
-                colors[v] = color_map(val) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
+                colors[v] = color_map(size_norm[v]) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
                 if inactive:
                     if edges_graph is not None:
                         for e in v.all_edges():
