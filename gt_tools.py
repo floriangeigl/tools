@@ -267,9 +267,10 @@ class GraphAnimator():
         else:
             self.network.vp['node_color'] = self.network.new_vertex_property('vector<float>')
         self.print_f('calc init positions')
-        self.pos = sfdp_layout(self.network, mu=self.mu)
-        self.print_f('calc init abs-positions')
-        self.pos_abs = self.calc_absolute_positions(self.pos, network=self.network)
+        if dynamic_pos or self.pos is None:
+            self.pos = sfdp_layout(self.network, mu=self.mu)
+            self.print_f('calc init abs-positions')
+            self.pos_abs = self.calc_absolute_positions(self.pos, network=self.network)
         self.first_iteration = True
 
         start = datetime.datetime.now()
