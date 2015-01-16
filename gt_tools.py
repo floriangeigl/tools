@@ -683,6 +683,10 @@ class GraphAnimator():
         if self.draw_fractions:
             self.network.vp['last_fraction_map'] = copy.copy(fraction_map)
         if dynamic_pos:
+            new_pos_ar = new_pos.get_2d_array((0, 1)).T
+            new_pos_ar = new_pos_ar[list(map(int, nodes_graph.vertices()))]
+            mean_pos = new_pos_ar.mean(axis=0)
+            new_pos.set_2d_array((new_pos_ar - mean_pos).T)
             self.pos = new_pos
             self.pos_abs = new_pos_abs
             self.active_nodes.a = all_active_nodes.a
