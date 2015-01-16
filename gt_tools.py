@@ -196,7 +196,7 @@ class GraphAnimator():
                 groups_map[v] = -1
         return sfdp_layout(network, pos=pos, groups=groups_map, eweight=e_weights, mu=mu, **kwargs)
 
-    def plot_network_evolution(self, dynamic_pos=False, infer_size_from_fraction=True):
+    def plot_network_evolution(self, dynamic_pos=False, infer_size_from_fraction=True, delete_pictures=True, label_pictures=True):
         self.output_filenum = 0
         tmp_smoothing = self.fps * self.smoothing
         smoothing = self.smoothing
@@ -352,36 +352,37 @@ class GraphAnimator():
                     draw_edges = False
                     just_copy = True
 
-        text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
-        self.print_f('label pictures...')
-        label_pos = (self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size))
-        label_img_size = (self.output_size, self.output_size)
-        label_im_bgc = (255, 255, 255, 0)
-        for idx, (label, files) in enumerate(self.generate_files.iteritems()):
-            # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
-            # print 10 - int((idx / len(self.generate_files.keys())) * 10),
-            if len(files) > 5:
-                # blend-in and out label
-                alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
-                alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
-                alpha_values = (np.array([min(1, i) for i in alpha_values]) * 255).astype('int')
-                label = str(label)
-                for img_idx, img_fname in enumerate(files):
-                    label_img = Image.new("RGBA", label_img_size, label_im_bgc)
+        if label_pictures:
+            text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
+            self.print_f('label pictures...')
+            label_pos = (self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size))
+            label_img_size = (self.output_size, self.output_size)
+            label_im_bgc = (255, 255, 255, 0)
+            for idx, (label, files) in enumerate(self.generate_files.iteritems()):
+                # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
+                # print 10 - int((idx / len(self.generate_files.keys())) * 10),
+                if len(files) > 5:
+                    # blend-in and out label
+                    alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
+                    alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
+                    alpha_values = (np.array([min(1, i) for i in alpha_values]) * 255).astype('int')
+                    label = str(label)
+                    for img_idx, img_fname in enumerate(files):
+                        label_img = Image.new("RGBA", label_img_size, label_im_bgc)
+                        label_drawer = ImageDraw.Draw(label_img)
+                        label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, alpha_values[img_idx]))
+                        img = Image.open(img_fname)
+                        img.paste(label_img, (0, 0), label_img)
+                        img.save(img_fname)
+                else:
+                    # no blending of label
+                    label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
                     label_drawer = ImageDraw.Draw(label_img)
-                    label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, alpha_values[img_idx]))
-                    img = Image.open(img_fname)
-                    img.paste(label_img, (0, 0), label_img)
-                    img.save(img_fname)
-            else:
-                # no blending of label
-                label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
-                label_drawer = ImageDraw.Draw(label_img)
-                label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, 255))
-                for img_idx, img_fname in enumerate(files):
-                    img = Image.open(img_fname)
-                    img.paste(label_img, (0, 0), label_img)
-                    img.save(img_fname)
+                    label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, 255))
+                    for img_idx, img_fname in enumerate(files):
+                        img = Image.open(img_fname)
+                        img.paste(label_img, (0, 0), label_img)
+                        img.save(img_fname)
 
         if self.filename_basename.endswith('.png'):
             file_basename = self.filename_basename[:-4]
@@ -395,7 +396,7 @@ class GraphAnimator():
                           self.filename_folder + '/' + file_basename.strip('_') + '.avi']
                 self.print_f('call:', p_call, verbose=2)
                 exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
-                if exit_status == 0:
+                if exit_status == 0 and delete_pictures:
                     self.print_f('delete pictures...', verbose=1)
                     _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
         return self.df, self.network
