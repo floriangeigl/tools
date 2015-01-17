@@ -100,6 +100,7 @@ class GraphAnimator():
         self.inactive_value_f = inactive_value_f
         self.active_nodes = None
         self.active_edges = None
+
         if self.cmap is None:
             def_cmap = 'gist_rainbow'
             self.print_f('using default cmap:', def_cmap, verbose=2)
@@ -424,9 +425,10 @@ class GraphAnimator():
                 self.output_filenum += 1
             self.print_f('Copy file:', orig_filename, ' X ', smoothing)
             return generated_files
-        default_edge_alpha = min(1, (1 / np.log2(self.network.num_edges()) if self.network.num_edges() > 0 else 1))
-        default_edge_color = [0.179, 0.203, 0.210, default_edge_alpha]
-        deactivated_edge_color = [0.179, 0.203, 0.210, (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0]
+        default_edge_alpha = (1 / np.log10(self.network.num_edges())) if self.network.num_edges() > 0 else 1
+        default_edge_color = [0.1, 0.1, 0.1, default_edge_alpha]
+        deactivated_edge_alpha = (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0
+        deactivated_edge_color = [0.1, 0.1, 0.1, deactivated_edge_alpha]
 
         min_vertex_size_shrinking_factor = 2
         size = self.network.new_vertex_property('float')
@@ -491,6 +493,7 @@ class GraphAnimator():
                 emerge_fraction_increase[v] = new_slice_size / smoothing
                 stay_fraction_change[v] = (new_slice_size - old_slice_size) / smoothing
                 colors[v] = zip(*sorted([color_map[i] for i in current_frac], key=operator.itemgetter(1)))[0]
+                colors[v] = [i[:3] + [min(i[3], self.max_node_alpha)] for i in colors[v]]
                 tmp_current_fraction_values = []
                 sorted_fractions = sorted(current_frac, key=lambda x: color_map[x][1])
                 tmp_fraction_mod = []
@@ -518,7 +521,7 @@ class GraphAnimator():
                             edge_color[e] = [0, 0, 0, 0] if dynamic_pos else deactivated_edge_color
                             active_edges[e] = False
         else:
-            if isinstance(color_map,dict):
+            if isinstance(color_map, dict):
                 color_values = size
             else:
                 color_values = color_values = prop_to_size(size, mi=0, ma=1, power=1)
@@ -526,6 +529,7 @@ class GraphAnimator():
                 val = size[v]
                 inactive = self.inactive_value_f(val)
                 colors[v] = color_map(color_values[v]) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
+                colors[v].a[-1] = min(colors[v].a[-1], self.max_node_alpha)
                 if inactive:
                     if edges_graph is not None:
                         for e in v.all_edges():
@@ -547,8 +551,8 @@ class GraphAnimator():
 
         # calc output and node size
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
-        tmp_output_size = (self.output_size[0] * 0.9, self.output_size[1] * 0.9)
-        max_vertex_size = np.sqrt((np.pi * (tmp_output_size[0] / 2) * (tmp_output_size[1] / 2)) / num_nodes)
+        tmp_output_size = min(self.output_size) * 0.9
+        max_vertex_size = np.sqrt((np.pi * (tmp_output_size / 2) ** 2) / num_nodes)
         if max_vertex_size < min_vertex_size_shrinking_factor:
             max_vertex_size = min_vertex_size_shrinking_factor
         min_vertex_size = max_vertex_size / min_vertex_size_shrinking_factor
@@ -580,7 +584,7 @@ class GraphAnimator():
             old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
             if self.mark_new_active_nodes:
                 colors = pos_tmp_net.new_vertex_property('vector<float>')
-                colors.set_2d_array(np.array([np.array([0.0, 0.0, 1.0, 1.0]) if self.active_nodes[n] else np.array([1.0, 0.0, 0.0, 1.0]) for n in pos_tmp_net.vertices()]).T)
+                colors.set_2d_array(np.array([np.array([0.0, 0.0, 1.0, self.max_node_alpha]) if self.active_nodes[n] else np.array([1.0, 0.0, 0.0, self.max_node_alpha]) for n in pos_tmp_net.vertices()]).T)
             for v in pos_tmp_net.vertices():
                 old_pos_update[v] = self.pos[v]
                 old_pos_abs_update[v] = self.pos_abs[v]
