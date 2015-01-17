@@ -493,7 +493,7 @@ class GraphAnimator():
                 emerge_fraction_increase[v] = new_slice_size / smoothing
                 stay_fraction_change[v] = (new_slice_size - old_slice_size) / smoothing
                 colors[v] = zip(*sorted([color_map[i] for i in current_frac], key=operator.itemgetter(1)))[0]
-                colors[v] = [i[:3] + [min(i[3], self.max_node_alpha)] for i in colors[v]]
+                colors[v] = [(i[0], i[1], i[2], min(i[3], self.max_node_alpha)) for i in colors[v]]
                 tmp_current_fraction_values = []
                 sorted_fractions = sorted(current_frac, key=lambda x: color_map[x][1])
                 tmp_fraction_mod = []
