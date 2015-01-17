@@ -39,9 +39,9 @@ def print_f(*args, **kwargs):
 
 class GraphAnimator():
     def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None,
-                 df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=1080, bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
+                 df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=(1920,1080), bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
                  inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3, mark_new_active_nodes=False,
-                 pause_after_iteration=0):
+                 pause_after_iteration=0, largest_component_only=False):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -50,6 +50,7 @@ class GraphAnimator():
         self.df_edges_key = df_edges_key
         self.draw_fractions = self.df_cat_key is not None
         self.df_size_key = df_size_key
+        self.lc_only = largest_component_only
         if any(isinstance(i, int) for i in self.df_vertex_key):
             self.print_f('convert vertex column to vertex instances')
             self.df[self.df_vertex_key] = self.df[self.df_vertex_key].apply(func=lambda x: network.vertex(x))
@@ -84,6 +85,8 @@ class GraphAnimator():
         self.mark_new_active_nodes = mark_new_active_nodes
         self.fps = fps
         self.output_size = output_size
+        if isinstance(self.output_size, (int, float)):
+            self.output_size = (self.output_size, self.output_size)
         self.color_converter = color_converter()
         self.bg_color = self.color_converter.to_rgba(bg_color)
         self.fraction_groups = fraction_groups
@@ -159,17 +162,23 @@ class GraphAnimator():
         else:
             pos = sfdp_layout(network, mu=mu, **kwargs)
         pos_ar = pos.get_2d_array((0, 1)).T
+        if self.lc_only:
+            lc = label_largest_component(network)
+            network = GraphView(network, vfilt=lc)
         if isinstance(network, GraphView):
-            pos_ar = pos_ar[list(map(int, network.vertices()))]
-        max_x, max_y = pos_ar.max(axis=0)
-        min_x, min_y = pos_ar.min(axis=0)
-        max_x -= min_x
-        max_y -= min_y
+            pos_ar_stat = pos_ar[list(map(int, network.vertices()))]
+        else:
+            pos_ar_stat = pos_ar
+        max_v = pos_ar_stat.max(axis=0)
+        min_v = pos_ar_stat.min(axis=0)
+        max_v -= min_v
+        #max_x -= min_x
+        #max_y -= min_y
         spacing = 0.15 if network.num_vertices() > 10 else 0.3
-        shift_mult = self.output_size * (1 - spacing)
-        shift_add = self.output_size * (spacing / 2)
-        max_v = np.array([max_x, max_y])
-        min_v = np.array([min_x, min_y])
+        shift_mult = np.array(self.output_size) * (1 - spacing)
+        shift_add = np.array(self.output_size) * (spacing / 2)
+        #max_v = np.array([max_x, max_y])
+        #min_v = np.array([min_x, min_y])
         mult = (1 / max_v) * shift_mult
         pos.set_2d_array(((pos_ar - min_v) * mult + shift_add).T)
         return pos
@@ -354,20 +363,20 @@ class GraphAnimator():
                     just_copy = True
 
         if label_pictures:
-            text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size * 0.05)))
+            text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size[1] * 0.05)))
             self.print_f('label pictures...')
-            label_pos = (self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size))
-            label_img_size = (self.output_size, self.output_size)
+            label_pos = (self.output_size[0] - (0.25 * self.output_size[0]), self.output_size[1] - (0.1 * self.output_size[1]))
+            label_img_size = self.output_size
             label_im_bgc = (255, 255, 255, 0)
             for idx, (label, files) in enumerate(self.generate_files.iteritems()):
                 # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
                 # print 10 - int((idx / len(self.generate_files.keys())) * 10),
+                label = str(label)
                 if len(files) > 5:
                     # blend-in and out label
                     alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
                     alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
                     alpha_values = (np.array([min(1, i) for i in alpha_values]) * 255).astype('int')
-                    label = str(label)
                     for img_idx, img_fname in enumerate(files):
                         label_img = Image.new("RGBA", label_img_size, label_im_bgc)
                         label_drawer = ImageDraw.Draw(label_img)
@@ -377,9 +386,9 @@ class GraphAnimator():
                         img.save(img_fname)
                 else:
                     # no blending of label
-                    label_img = Image.new("RGBA", (self.output_size, self.output_size), (255, 255, 255, 0))
+                    label_img = Image.new("RGBA", self.output_size, (255, 255, 255, 0))
                     label_drawer = ImageDraw.Draw(label_img)
-                    label_drawer.text((self.output_size - (0.25 * self.output_size), self.output_size - (0.1 * self.output_size)), str(label), font=text_font, fill=(0, 0, 0, 255))
+                    label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, 255))
                     for img_idx, img_fname in enumerate(files):
                         img = Image.open(img_fname)
                         img.paste(label_img, (0, 0), label_img)
@@ -538,8 +547,8 @@ class GraphAnimator():
 
         # calc output and node size
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
-        tmp_output_size = self.output_size if self.network.num_edges() > 0 else self.output_size * 0.9
-        max_vertex_size = np.sqrt((np.pi * ((tmp_output_size / 4) ** 2)) / num_nodes)
+        tmp_output_size = self.output_size if self.network.num_edges() > 0 else (self.output_size[0] * 0.9,self.output_size[1] * 0.9)
+        max_vertex_size = np.sqrt((np.pi * (tmp_output_size[0] / 2) * (tmp_output_size[1] / 2)) / num_nodes)
         if max_vertex_size < min_vertex_size_shrinking_factor:
             max_vertex_size = min_vertex_size_shrinking_factor
         min_vertex_size = max_vertex_size / min_vertex_size_shrinking_factor
@@ -548,7 +557,7 @@ class GraphAnimator():
             if max_vertex_size < 1:
                 max_vertex_size = 1
             min_vertex_size = max_vertex_size
-        output_size = (self.output_size, self.output_size)
+        output_size = self.output_size
         size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
         if self.first_iteration:
             old_size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
