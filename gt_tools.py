@@ -547,7 +547,7 @@ class GraphAnimator():
 
         # calc output and node size
         num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
-        tmp_output_size = self.output_size if self.network.num_edges() > 0 else (self.output_size[0] * 0.9,self.output_size[1] * 0.9)
+        tmp_output_size = (self.output_size[0] * 0.9, self.output_size[1] * 0.9)
         max_vertex_size = np.sqrt((np.pi * (tmp_output_size[0] / 2) * (tmp_output_size[1] / 2)) / num_nodes)
         if max_vertex_size < min_vertex_size_shrinking_factor:
             max_vertex_size = min_vertex_size_shrinking_factor
