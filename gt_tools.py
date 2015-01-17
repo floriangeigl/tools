@@ -100,7 +100,7 @@ class GraphAnimator():
         self.inactive_value_f = inactive_value_f
         self.active_nodes = None
         self.active_edges = None
-
+        self.max_node_alpha = 0.8
         if self.cmap is None:
             def_cmap = 'gist_rainbow'
             self.print_f('using default cmap:', def_cmap, verbose=2)
