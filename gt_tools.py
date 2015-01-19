@@ -425,7 +425,7 @@ class GraphAnimator():
                 self.output_filenum += 1
             self.print_f('Copy file:', orig_filename, ' X ', smoothing)
             return generated_files
-        default_edge_alpha = (1 / np.log10(self.network.num_edges())) if self.network.num_edges() > 0 else 1
+        default_edge_alpha = (1 / np.log2(self.network.num_edges())) if self.network.num_edges() > 0 else 1
         default_edge_color = [0.1, 0.1, 0.1, default_edge_alpha]
         deactivated_edge_alpha = (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0
         deactivated_edge_color = [0.1, 0.1, 0.1, deactivated_edge_alpha]
