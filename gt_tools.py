@@ -380,10 +380,12 @@ class GraphAnimator():
                     alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
                     alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
                     alpha_values = (np.array([min(1, i) for i in alpha_values]) * 255).astype('int')
+                    label_img = None
                     for img_idx, img_fname in enumerate(files):
-                        label_img = Image.new("RGBA", label_img_size, label_im_bgc)
-                        label_drawer = ImageDraw.Draw(label_img)
-                        label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, alpha_values[img_idx]))
+                        if img_idx == 0 or (img_idx > 0 and alpha_values[img_idx-1] != alpha_values[img_idx]):
+                            label_img = Image.new("RGBA", label_img_size, label_im_bgc)
+                            label_drawer = ImageDraw.Draw(label_img)
+                            label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, alpha_values[img_idx]))
                         img = Image.open(img_fname)
                         img.paste(label_img, (0, 0), label_img)
                         img.save(img_fname)
