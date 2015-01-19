@@ -41,7 +41,7 @@ class GraphAnimator():
     def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None,
                  df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=(1920, 1080), bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
                  inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3, mark_new_active_nodes=False,
-                 pause_after_iteration=0, largest_component_only=False, edge_blending=False, keep_inactive_nodes=True):
+                 pause_after_iteration=0, largest_component_only=False, edge_blending=False, keep_inactive_nodes=True, max_node_alpha=0.8):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -102,7 +102,7 @@ class GraphAnimator():
         self.inactive_value_f = inactive_value_f
         self.active_nodes = None
         self.active_edges = None
-        self.max_node_alpha = 0.8
+        self.max_node_alpha = max_node_alpha
         if self.cmap is None:
             def_cmap = 'gist_rainbow'
             self.print_f('using default cmap:', def_cmap, verbose=2)
