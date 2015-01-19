@@ -39,9 +39,9 @@ def print_f(*args, **kwargs):
 
 class GraphAnimator():
     def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None,
-                 df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=(1920,1080), bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
+                 df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=(1920, 1080), bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
                  inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3, mark_new_active_nodes=False,
-                 pause_after_iteration=0, largest_component_only=False):
+                 pause_after_iteration=0, largest_component_only=False, edge_blending=False):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -51,6 +51,7 @@ class GraphAnimator():
         self.draw_fractions = self.df_cat_key is not None
         self.df_size_key = df_size_key
         self.lc_only = largest_component_only
+        self.edge_blending = edge_blending
         if any(isinstance(i, int) for i in self.df_vertex_key):
             self.print_f('convert vertex column to vertex instances')
             self.df[self.df_vertex_key] = self.df[self.df_vertex_key].apply(func=lambda x: network.vertex(x))
@@ -426,9 +427,9 @@ class GraphAnimator():
             self.print_f('Copy file:', orig_filename, ' X ', smoothing)
             return generated_files
         default_edge_alpha = (1 / np.log2(self.network.num_edges())) if self.network.num_edges() > 0 else 1
-        default_edge_color = [0.1, 0.1, 0.1, default_edge_alpha]
+        default_edge_color = [0.3, 0.3, 0.3, default_edge_alpha]
         deactivated_edge_alpha = (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0
-        deactivated_edge_color = [0.1, 0.1, 0.1, deactivated_edge_alpha]
+        deactivated_edge_color = [0.3, 0.3, 0.3, deactivated_edge_alpha]
 
         min_vertex_size_shrinking_factor = 2
         size = self.network.new_vertex_property('float')
@@ -661,10 +662,10 @@ class GraphAnimator():
             else:
                 interpolated_pos = self.pos_abs
 
-            if edges_graph is not None and (smoothing_step == 0 or dynamic_pos):
+            if edges_graph is not None and ((smoothing_step == 0 or self.edge_blending) or dynamic_pos):
                 eorder = edges_graph.new_edge_property('float')
                 eorder.a = edge_color.get_2d_array([3])[0]
-                if dynamic_pos:
+                if dynamic_pos or self.edge_blending:
                     interpolated_edge_color = edges_graph.new_edge_property('vector<float>')
                     interpolated_edge_color.set_2d_array(last_edge_color.get_2d_array((0, 1, 2, 3)) * old_fac + edge_color.get_2d_array((0, 1, 2, 3)) * new_fac)
                 else:
