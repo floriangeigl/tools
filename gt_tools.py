@@ -41,7 +41,7 @@ class GraphAnimator():
     def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None,
                  df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=(1920, 1080), bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
                  inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3, mark_new_active_nodes=False,
-                 pause_after_iteration=0, largest_component_only=False, edge_blending=False):
+                 pause_after_iteration=0, largest_component_only=False, edge_blending=False, keep_inactive_nodes=True):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -52,6 +52,7 @@ class GraphAnimator():
         self.df_size_key = df_size_key
         self.lc_only = largest_component_only
         self.edge_blending = edge_blending
+        self.keep_inactive_nodes = keep_inactive_nodes
         if any(isinstance(i, int) for i in self.df_vertex_key):
             self.print_f('convert vertex column to vertex instances')
             self.df[self.df_vertex_key] = self.df[self.df_vertex_key].apply(func=lambda x: network.vertex(x))
@@ -525,7 +526,7 @@ class GraphAnimator():
             if isinstance(color_map, dict):
                 color_values = size
             else:
-                color_values = color_values = prop_to_size(size, mi=0, ma=1, power=1)
+                color_values = prop_to_size(size, mi=0, ma=1, power=1)
             for v in self.network.vertices():
                 val = size[v]
                 inactive = self.inactive_value_f(val)
@@ -575,8 +576,10 @@ class GraphAnimator():
         if self.first_iteration:
             all_active_nodes = active_nodes
             self.active_nodes = active_nodes
-        else:
+        elif self.keep_inactive_nodes:
             all_active_nodes.a = self.active_nodes.a | active_nodes.a
+        else:
+            all_active_nodes.a = active_nodes.a
 
         #calc dynamic positioning
         if dynamic_pos:
