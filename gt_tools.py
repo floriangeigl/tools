@@ -361,7 +361,7 @@ class GraphAnimator():
                             shutil.copy(last_img_fn, pause_pic_fn)
                             self.generate_files[one_iteration].append(pause_pic_fn)
                             self.output_filenum += 1
-                    print iteration, ':', self.generate_files[one_iteration][0], '-', self.generate_files[one_iteration][-1]
+                    # print iteration, ':', self.generate_files[one_iteration][0], '-', self.generate_files[one_iteration][-1]
                     draw_edges = False
                     just_copy = True
         if label_pictures:
