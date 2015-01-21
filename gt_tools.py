@@ -364,56 +364,9 @@ class GraphAnimator():
                             self.output_filenum += 1
                     draw_edges = False
                     just_copy = True
-        num_generated_images = sum(map(len, self.generate_files.values()))
         if label_pictures:
-            text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size[1] * 0.05)))
-            self.print_f('label', num_generated_images, 'pictures...')
-            label_pos = (self.output_size[0] - (0.25 * self.output_size[0]), self.output_size[1] - (0.1 * self.output_size[1]))
-            label_img_size = self.output_size
-            label_im_bgc = (255, 255, 255, 0)
-            for idx, (label, files) in enumerate(self.generate_files.iteritems()):
-                # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
-                # print 10 - int((idx / len(self.generate_files.keys())) * 10),
-                label = str(label)
-                if len(files) > 5:
-                    # blend-in and out label
-                    alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
-                    alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
-                    alpha_values = (np.array([min(1, i) for i in alpha_values]) * 255).astype('int')
-                    label_img = None
-                    for img_idx, img_fname in enumerate(files):
-                        if img_idx == 0 or (img_idx > 0 and alpha_values[img_idx-1] != alpha_values[img_idx]):
-                            label_img = Image.new("RGBA", label_img_size, label_im_bgc)
-                            label_drawer = ImageDraw.Draw(label_img)
-                            label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, alpha_values[img_idx]))
-                        img = Image.open(img_fname)
-                        img.paste(label_img, (0, 0), label_img)
-                        img.save(img_fname)
-                else:
-                    # no blending of label
-                    label_img = Image.new("RGBA", self.output_size, (255, 255, 255, 0))
-                    label_drawer = ImageDraw.Draw(label_img)
-                    label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, 255))
-                    for img_idx, img_fname in enumerate(files):
-                        img = Image.open(img_fname)
-                        img.paste(label_img, (0, 0), label_img)
-                        img.save(img_fname)
-
-        if self.filename_basename.endswith('.png'):
-            file_basename = self.filename_basename[:-4]
-        else:
-            file_basename = self.filename_basename
-        if _platform == "linux" or _platform == "linux2":
-            with open(os.devnull, "w") as devnull:
-                self.print_f('create movie of', num_generated_images, 'pictures', verbose=1)
-                p_call = ['ffmpeg', '-framerate', str(fps), '-r', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
-                          str(fps), '-r', str(self.rate), '-c:v', 'libx264', '-y', '-pix_fmt', 'yuv420p',
-                          self.filename_folder + '/' + file_basename.strip('_') + '.avi']
-                self.print_f('call:', p_call, verbose=2)
-                exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
-                if exit_status == 0 and delete_pictures:
-                    self.print_f('delete pictures...', verbose=1)
-                    _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+            self.label_output()
+        self.create_video(delete_pictures)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False, smoothing=1,
@@ -721,6 +674,60 @@ class GraphAnimator():
             self.active_nodes.a = all_active_nodes.a
         self.first_iteration = False
         return generated_files
+
+    def label_output(self):
+        num_generated_images = sum(map(len, self.generate_files.values()))
+        text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size[1] * 0.05)))
+        self.print_f('label', num_generated_images, 'pictures...')
+        label_pos = (self.output_size[0] - (0.25 * self.output_size[0]), self.output_size[1] - (0.1 * self.output_size[1]))
+        label_img_size = self.output_size
+        label_im_bgc = (255, 255, 255, 0)
+        for idx, (label, files) in enumerate(self.generate_files.iteritems()):
+            # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
+            # print 10 - int((idx / len(self.generate_files.keys())) * 10),
+            label = str(label)
+            if len(files) > 5:
+                # blend-in and out label
+                alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
+                alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
+                alpha_values = (np.array([min(1, i) for i in alpha_values]) * 255).astype('int')
+                label_img = None
+                for img_idx, img_fname in enumerate(files):
+                    if img_idx == 0 or (img_idx > 0 and alpha_values[img_idx-1] != alpha_values[img_idx]):
+                        label_img = Image.new("RGBA", label_img_size, label_im_bgc)
+                        label_drawer = ImageDraw.Draw(label_img)
+                        label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, alpha_values[img_idx]))
+                    img = Image.open(img_fname)
+                    img.paste(label_img, (0, 0), label_img)
+                    img.save(img_fname)
+            else:
+                # no blending of label
+                label_img = Image.new("RGBA", self.output_size, (255, 255, 255, 0))
+                label_drawer = ImageDraw.Draw(label_img)
+                label_drawer.text(label_pos, label, font=text_font, fill=(0, 0, 0, 255))
+                for img_idx, img_fname in enumerate(files):
+                    img = Image.open(img_fname)
+                    img.paste(label_img, (0, 0), label_img)
+                    img.save(img_fname)
+
+    def create_video(self, delete_pictures):
+        if self.filename_basename.endswith('.png'):
+            file_basename = self.filename_basename[:-4]
+        else:
+            file_basename = self.filename_basename
+        if _platform == "linux" or _platform == "linux2":
+            num_generated_images = sum(map(len, self.generate_files.values()))
+            with open(os.devnull, "w") as devnull:
+                self.print_f('create movie of', num_generated_images, 'pictures', verbose=1)
+                p_call = ['ffmpeg', '-framerate', str(fps), '-r', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
+                          str(fps), '-r', str(self.rate), '-c:v', 'libx264', '-y', '-pix_fmt', 'yuv420p',
+                          self.filename_folder + '/' + file_basename.strip('_') + '.avi']
+                self.print_f('call:', p_call, verbose=2)
+                exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
+                if exit_status == 0 and delete_pictures:
+                    self.print_f('delete pictures...', verbose=1)
+                    _ = subprocess.check_call(['rm ' + str(self.filename_folder + '/' + self.tmp_folder_name + '*' + file_basename + '.png')], shell=True, stdout=devnull)
+
 
 
 # Generator Class works with GraphTool generators, as they provide more functionality than NetworkX Generators
