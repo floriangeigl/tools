@@ -382,7 +382,7 @@ class GraphAnimator():
                 self.output_filenum += 1
             self.print_f('Copy file:', orig_filename, ' X ', smoothing)
             return generated_files
-        default_edge_alpha = (1 / np.log2(self.network.num_edges())) if self.network.num_edges() > 100 else 1
+        default_edge_alpha = (1 / np.log2(self.network.num_edges())) if self.network.num_edges() > 100 else 0.9
         default_edge_color = [0.3, 0.3, 0.3, default_edge_alpha]
         deactivated_edge_alpha = (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0
         deactivated_edge_color = [0.3, 0.3, 0.3, deactivated_edge_alpha]
@@ -632,9 +632,8 @@ class GraphAnimator():
                 self.print_f('draw edgegraph', verbose=2)
                 print 'nodes:',nodes_graph.num_vertices()
                 if nodes_graph.num_vertices() > 0:
-                    graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=0.0,
-                               vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0,
-                               bg_color=self.bg_color)
+                    graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=min_vertex_size, vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1,
+                               edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0, bg_color=self.bg_color)
                 else:
                     empty_img = Image.new("RGBA", self.output_size, tuple([int(i*255) for i in self.bg_color]))
                     empty_img.save(self.edges_filename, 'PNG')
