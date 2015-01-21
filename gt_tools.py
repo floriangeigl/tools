@@ -347,7 +347,7 @@ class GraphAnimator():
                             if i == 1:
                                 self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=1)
                             self.generate_files[one_iteration].extend(
-                                self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=i != 0,
+                                self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=(i != 0 or just_copy),
                                                                 smoothing=smoothing, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction,
                                                                 edge_map=active_edges))
                     else:
@@ -374,10 +374,16 @@ class GraphAnimator():
         generated_files = []
         if just_copy_last:
             min_filenum = self.output_filenum
-            orig_filename = self.generate_filename(min_filenum - 1)
+            if min_filenum == 0:
+                empty_img = Image.new("RGBA", self.output_size, tuple([int(i*255) for i in self.bg_color]))
+                empty_img.save(self.generate_filename(min_filenum), 'PNG')
+                orig_filename = self.generate_filename(min_filenum)
+            else:
+                orig_filename = self.generate_filename(min_filenum - 1)
             for smoothing_step in range(smoothing):
                 filename = self.generate_filename(self.output_filenum)
-                shutil.copy(orig_filename, filename)
+                if orig_filename != filename:
+                    shutil.copy(orig_filename, filename)
                 generated_files.append(filename)
                 self.output_filenum += 1
             self.print_f('Copy file:', orig_filename, ' X ', smoothing)
@@ -541,7 +547,7 @@ class GraphAnimator():
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
             old_pos_update = pos_tmp_net.new_vertex_property('vector<float>')
             old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
-            if self.mark_new_active_nodes and pos_tmp_net.num_vertices() > 0:
+            if self.mark_new_active_nodes:
                 colors = pos_tmp_net.new_vertex_property('vector<float>')
                 colors.set_2d_array(np.array([np.array([0.0, 0.0, 1.0, self.max_node_alpha]) if self.active_nodes[n] else np.array([1.0, 0.0, 0.0, self.max_node_alpha]) for n in pos_tmp_net.vertices()]).T)
             for v in pos_tmp_net.vertices():
@@ -563,8 +569,7 @@ class GraphAnimator():
                     self.pos[v] = []
                     self.pos_abs[v] = []
                 self.print_f('mean pos:', self.pos[v], verbose=2)
-            if pos_tmp_net.num_vertices() > 0:
-                self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
+            self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
@@ -630,7 +635,6 @@ class GraphAnimator():
                 else:
                     interpolated_edge_color = edge_color
                 self.print_f('draw edgegraph', verbose=2)
-                print 'nodes:',nodes_graph.num_vertices()
                 if nodes_graph.num_vertices() > 0:
                     graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=min_vertex_size, vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1,
                                edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0, bg_color=self.bg_color)
