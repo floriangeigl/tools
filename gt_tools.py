@@ -299,7 +299,7 @@ class GraphAnimator():
                 last_iteration = one_iteration
                 self.print_f('iteration:', one_iteration, verbose=2)
                 if one_iteration == iteration:
-                    for idx, row in data.iterrows():
+                    for idx, row in filter(lambda x, y: not np.isnan(y[self.df_vertex_key]), data.iterrows()):
                         vertex = row[self.df_vertex_key]
                         if self.draw_fractions:
                             old_f_vp = fractions_vp[vertex]
@@ -676,18 +676,27 @@ class GraphAnimator():
                 else:
                     interpolated_edge_color = edge_color
                 self.print_f('draw edgegraph', verbose=2)
-                graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=0.0,
-                           vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0,
-                           bg_color=self.bg_color)
+                print 'nodes:',nodes_graph.num_vertices()
+                if nodes_graph.num_vertices() > 0:
+                    graph_draw(edges_graph, output=self.edges_filename, output_size=output_size, pos=interpolated_pos, fit_view=False, vorder=interpolated_size, vertex_size=0.0,
+                               vertex_fill_color=self.bg_color, vertex_color=self.bg_color, edge_pen_width=1, edge_color=interpolated_edge_color, eorder=eorder, vertex_pen_width=0.0,
+                               bg_color=self.bg_color)
+                else:
+                    empty_img = Image.new("RGBA", self.output_size, tuple([int(i*255) for i in self.bg_color]))
+                    empty_img.save(self.edges_filename, 'PNG')
                 self.print_f('ok', verbose=2)
                 plt.close('all')
 
             filename = self.generate_filename(self.output_filenum)
             self.output_filenum += 1
             self.print_f('draw nodegraph', verbose=2)
-            graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals,
-                       vertex_pie_colors=interpolated_color, vertex_fill_color='blue' if self.draw_fractions else interpolated_color, vertex_shape=vertex_shape, output=filename,
-                       output_size=output_size, vertex_pen_width=0.0, vertex_color='blue' if self.draw_fractions else interpolated_color)
+            if nodes_graph.num_vertices() > 0:
+                graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals,
+                           vertex_pie_colors=interpolated_color, vertex_fill_color='blue' if self.draw_fractions else interpolated_color, vertex_shape=vertex_shape, output=filename,
+                           output_size=output_size, vertex_pen_width=0.0, vertex_color='blue' if self.draw_fractions else interpolated_color)
+            else:
+                empty_img = Image.new("RGBA", self.output_size, tuple([int(i*255) for i in self.bg_color]))
+                empty_img.save(filename, 'PNG')
             self.print_f('ok', verbose=2)
             generated_files.append(filename)
             plt.close('all')
