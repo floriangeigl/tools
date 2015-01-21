@@ -339,8 +339,7 @@ class GraphAnimator():
                         est_time = '-'
                     if self.verbose >= 2 or current_perc > last_progress_perc:
                         last_progress_perc = current_perc
-                        ext = ' | draw edges' if draw_edges else ''
-                        ext += ' | just copy' if just_copy else ''
+                        ext = ' | just copy' if just_copy else (' | draw edges' if draw_edges else '')
                         self.print_f('plot network evolution iteration:', one_iteration, '(' + str(current_perc) + '%)', 'est remain:', est_time, ext, verbose=1)
                     if iteration_idx == 0 or iteration_idx == total_iterations:
                         for i in xrange(init_pause_time):
@@ -362,7 +361,8 @@ class GraphAnimator():
                             shutil.copy(last_img_fn, pause_pic_fn)
                             self.generate_files[one_iteration].append(pause_pic_fn)
                             self.output_filenum += 1
-                    draw_edges = False
+                    # print iteration, ':', self.generate_files[one_iteration]
+                    draw_edges = True
                     just_copy = True
         if label_pictures:
             self.label_output()
@@ -645,7 +645,6 @@ class GraphAnimator():
                 plt.close('all')
 
             filename = self.generate_filename(self.output_filenum)
-            self.output_filenum += 1
             self.print_f('draw nodegraph', verbose=2)
             if nodes_graph.num_vertices() > 0:
                 graph_draw(nodes_graph, fit_view=False, pos=interpolated_pos, vorder=interpolated_size, vertex_size=interpolated_size, vertex_pie_fractions=interpolated_fraction_vals,
@@ -654,6 +653,7 @@ class GraphAnimator():
             else:
                 empty_img = Image.new("RGBA", self.output_size, tuple([int(i*255) for i in self.bg_color]))
                 empty_img.save(filename, 'PNG')
+            self.output_filenum += 1
             self.print_f('ok', verbose=2)
             generated_files.append(filename)
             plt.close('all')
