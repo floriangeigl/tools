@@ -299,7 +299,7 @@ class GraphAnimator():
                 last_iteration = one_iteration
                 self.print_f('iteration:', one_iteration, verbose=2)
                 if one_iteration == iteration:
-                    for idx, row in filter(lambda x, y: not np.isnan(y[self.df_vertex_key]), data.iterrows()):
+                    for idx, row in filter(lambda lx: not np.isnan(lx[1][self.df_vertex_key]), data.iterrows()):
                         vertex = row[self.df_vertex_key]
                         if self.draw_fractions:
                             old_f_vp = fractions_vp[vertex]
@@ -541,7 +541,7 @@ class GraphAnimator():
             pos_tmp_net = GraphView(self.network, vfilt=all_active_nodes, efilt=active_edges)
             old_pos_update = pos_tmp_net.new_vertex_property('vector<float>')
             old_pos_abs_update = pos_tmp_net.new_vertex_property('vector<float>')
-            if self.mark_new_active_nodes:
+            if self.mark_new_active_nodes and pos_tmp_net.num_vertices() > 0:
                 colors = pos_tmp_net.new_vertex_property('vector<float>')
                 colors.set_2d_array(np.array([np.array([0.0, 0.0, 1.0, self.max_node_alpha]) if self.active_nodes[n] else np.array([1.0, 0.0, 0.0, self.max_node_alpha]) for n in pos_tmp_net.vertices()]).T)
             for v in pos_tmp_net.vertices():
@@ -563,7 +563,8 @@ class GraphAnimator():
                     self.pos[v] = []
                     self.pos_abs[v] = []
                 self.print_f('mean pos:', self.pos[v], verbose=2)
-            self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
+            if pos_tmp_net.num_vertices() > 0:
+                self.print_f('new active nodes:', count_new_active, '(', count_new_active / pos_tmp_net.num_vertices() * 100, '%)', verbose=2)
             try:
                 new_pos = self.calc_grouped_sfdp_layout(network=pos_tmp_net, groups_vp='groups', pos=self.pos)
                 self.print_f('dyn pos: updated grouped sfdp', verbose=2)
