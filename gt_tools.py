@@ -344,7 +344,7 @@ class GraphAnimator():
                     if iteration_idx == 0 or iteration_idx == total_iterations:
                         for i in xrange(init_pause_time):
                             if i == 1:
-                                self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=1)
+                                self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=2)
                             self.generate_files[one_iteration].extend(
                                 self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=(i != 0 or just_copy),
                                                                 smoothing=smoothing, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction,
