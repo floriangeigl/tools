@@ -366,7 +366,7 @@ class GraphAnimator():
                     just_copy = True
         if label_pictures:
             self.label_output()
-        self.create_video(delete_pictures)
+        self.create_video(fps, delete_pictures)
         return self.df, self.network
 
     def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False, smoothing=1,
@@ -714,7 +714,7 @@ class GraphAnimator():
                     img.paste(label_img, (0, 0), label_img)
                     img.save(img_fname)
 
-    def create_video(self, delete_pictures):
+    def create_video(self, fps, delete_pictures=True):
         if self.filename_basename.endswith('.png'):
             file_basename = self.filename_basename[:-4]
         else:
