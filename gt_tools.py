@@ -299,7 +299,7 @@ class GraphAnimator():
                 last_iteration = one_iteration
                 self.print_f('iteration:', one_iteration, verbose=2)
                 if one_iteration == iteration:
-                    for idx, row in filter(lambda lx: not np.isnan(lx[1][self.df_vertex_key]), data.iterrows()):
+                    for idx, row in filter(lambda lx: isinstance([self.df_vertex_key], Vertex), data.iterrows()):
                         vertex = row[self.df_vertex_key]
                         if self.draw_fractions:
                             old_f_vp = fractions_vp[vertex]
