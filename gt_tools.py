@@ -361,7 +361,7 @@ class GraphAnimator():
                             shutil.copy(last_img_fn, pause_pic_fn)
                             self.generate_files[one_iteration].append(pause_pic_fn)
                             self.output_filenum += 1
-                    # print iteration, ':', self.generate_files[one_iteration]
+                    print iteration, ':', self.generate_files[one_iteration][0], '-', self.generate_files[one_iteration][-1]
                     draw_edges = False
                     just_copy = True
         if label_pictures:
@@ -682,7 +682,8 @@ class GraphAnimator():
     def label_output(self):
         num_generated_images = sum(map(len, self.generate_files.values()))
         text_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", int(round(self.output_size[1] * 0.05)))
-        self.print_f('label', num_generated_images, 'pictures...')
+        blending = len(self.generate_files[sorted(self.generate_files.keys())[2]]) > 10
+        self.print_f('label', num_generated_images, 'pictures', ('with blending' if blending else ''))
         label_pos = (self.output_size[0] - (0.25 * self.output_size[0]), self.output_size[1] - (0.1 * self.output_size[1]))
         label_img_size = self.output_size
         label_im_bgc = (255, 255, 255, 0)
@@ -690,7 +691,7 @@ class GraphAnimator():
             # if int((idx / len(self.generate_files.keys())) * 10) > int(((idx - 1) / len(self.generate_files.keys())) * 10):
             # print 10 - int((idx / len(self.generate_files.keys())) * 10),
             label = str(label)
-            if len(files) > 5:
+            if blending:
                 # blend-in and out label
                 alpha_values = np.array([(len(files) / 2) - abs(smoothing_step - (len(files) / 2)) for smoothing_step in range(len(files))])
                 alpha_values /= alpha_values.max() * (1 + (1 / len(files)))
@@ -723,8 +724,8 @@ class GraphAnimator():
             num_generated_images = sum(map(len, self.generate_files.values()))
             with open(os.devnull, "w") as devnull:
                 self.print_f('create movie of', num_generated_images, 'pictures', verbose=1)
-                p_call = ['ffmpeg', '-framerate', str(fps), '-r', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
-                          str(fps), '-r', str(self.rate), '-c:v', 'libx264', '-y', '-pix_fmt', 'yuv420p',
+                p_call = ['ffmpeg', '-framerate', str(fps), '-i', self.filename_folder + '/' + self.tmp_folder_name + '%06d' + file_basename + '.png', '-framerate',
+                          str(fps), '-r', str(fps), '-c:v', 'libx264', '-y', '-pix_fmt', 'yuv420p',
                           self.filename_folder + '/' + file_basename.strip('_') + '.avi']
                 self.print_f('call:', p_call, verbose=2)
                 exit_status = subprocess.check_call(p_call, stdout=devnull, stderr=devnull)
