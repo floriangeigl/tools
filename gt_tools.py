@@ -291,6 +291,7 @@ class GraphAnimator():
         just_copy = True
         last_progress_perc = -1
         iteration_idx = -1
+        num_just_copied = 0
         self.generate_files = defaultdict(list)
         active_edges = None if self.df_edges_key is None else set()
         for iteration, data in grouped_by_iteration:
@@ -332,8 +333,10 @@ class GraphAnimator():
                         self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (size_map[vertex] if size_map is not None else ''), verbose=2)
                 if iteration_idx % self.plot_each == 0 or iteration_idx == 0 or iteration_idx == total_iterations:
                     current_perc = int(iteration_idx / total_iterations * 100)
-                    if iteration_idx > 0:
-                        avg_time = (datetime.datetime.now() - start).total_seconds() / iteration_idx
+                    if just_copy:
+                        num_just_copied += 1
+                    if iteration_idx - num_just_copied > 0:
+                        avg_time = (datetime.datetime.now() - start).total_seconds() / (iteration_idx - num_just_copied)
                         est_time = datetime.timedelta(seconds=int(avg_time * (total_iterations - iteration_idx)))
                     else:
                         est_time = '-'
