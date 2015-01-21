@@ -287,7 +287,7 @@ class GraphAnimator():
 
         start = datetime.datetime.now()
         last_iteration = self.df[self.df_iteration_key].min() - 1
-        draw_edges = True
+        draw_edges = False
         just_copy = True
         last_progress_perc = -1
         iteration_idx = -1
@@ -362,7 +362,7 @@ class GraphAnimator():
                             self.generate_files[one_iteration].append(pause_pic_fn)
                             self.output_filenum += 1
                     # print iteration, ':', self.generate_files[one_iteration]
-                    draw_edges = True
+                    draw_edges = False
                     just_copy = True
         if label_pictures:
             self.label_output()
@@ -386,7 +386,7 @@ class GraphAnimator():
                     shutil.copy(orig_filename, filename)
                 generated_files.append(filename)
                 self.output_filenum += 1
-            self.print_f('Copy file:', orig_filename, ' X ', smoothing)
+            self.print_f('Copy file:', orig_filename, ' X ', smoothing, verbose=2)
             return generated_files
         default_edge_alpha = (1 / np.log2(self.network.num_edges())) if self.network.num_edges() > 100 else 0.9
         default_edge_color = [0.3, 0.3, 0.3, default_edge_alpha]
