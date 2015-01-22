@@ -254,9 +254,9 @@ class GraphAnimator():
         else:
             fractions_vp = None
 
-        size_map = self.network.new_vertex_property('float')
+        vertex_state = self.network.new_vertex_property('float')
         if self.df_size_key is not None:
-            self.network.vp[self.df_size_key] = size_map
+            self.network.vp[self.df_size_key] = vertex_state
 
         try:
             _ = self.network.vp['NodeId']
@@ -314,14 +314,14 @@ class GraphAnimator():
                                     just_copy = False
                             fractions_vp[vertex] = new_f_vp
                         else:
-                            old_size = size_map[vertex]
+                            old_size = vertex_state[vertex]
                             new_size = row[self.df_size_key]
                             if not draw_edges and old_size != new_size and (old_size == 0 or new_size == 0):
                                 draw_edges = True
                             if just_copy:
                                 if old_size != new_size:
                                     just_copy = False
-                            size_map[vertex] = new_size
+                            vertex_state[vertex] = new_size
                         if active_edges is not None:
                             new_active_edges = row[self.df_edges_key]
                             if hasattr(new_active_edges, '__iter__'):
@@ -330,7 +330,7 @@ class GraphAnimator():
                                 active_edges.update(new_active_edges)
                             else:
                                 active_edges.add(new_active_edges)
-                        self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (size_map[vertex] if size_map is not None else ''), verbose=2)
+                        self.print_f(one_iteration, vertex, 'has', fractions_vp[vertex] if self.draw_fractions else (vertex_state[vertex] if vertex_state is not None else ''), verbose=2)
                 if iteration_idx % self.plot_each == 0 or iteration_idx == 0 or iteration_idx == total_iterations:
                     current_perc = int(iteration_idx / total_iterations * 100)
                     if just_copy:
@@ -349,12 +349,12 @@ class GraphAnimator():
                             if i == 1:
                                 self.print_f('init' if iteration_idx == 0 else 'exit', 'phase', verbose=2)
                             self.generate_files[one_iteration].extend(
-                                self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=(i != 0 or just_copy),
+                                self.__draw_graph_animation_pic(color_mapping, vertex_state_map=vertex_state, fraction_map=fractions_vp, draw_edges=draw_edges, just_copy_last=(i != 0 or just_copy),
                                                                 smoothing=smoothing, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction,
                                                                 edge_map=active_edges))
                     else:
                         self.generate_files[one_iteration].extend(
-                            self.__draw_graph_animation_pic(color_mapping, size_map=size_map, fraction_map=fractions_vp, draw_edges=draw_edges, smoothing=smoothing,
+                            self.__draw_graph_animation_pic(color_mapping, vertex_state_map=vertex_state, fraction_map=fractions_vp, draw_edges=draw_edges, smoothing=smoothing,
                                                             just_copy_last=just_copy, dynamic_pos=dynamic_pos, infer_size_from_fraction=infer_size_from_fraction,
                                                             edge_map=active_edges))
                     if self.pause_after_iteration > 0:
@@ -372,7 +372,7 @@ class GraphAnimator():
         self.create_video(fps, delete_pictures)
         return self.df, self.network
 
-    def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), size_map=None, fraction_map=None, draw_edges=True, just_copy_last=False, smoothing=1,
+    def __draw_graph_animation_pic(self, color_map=colormap.get_cmap('gist_rainbow'), vertex_state_map=None, fraction_map=None, draw_edges=True, just_copy_last=False, smoothing=1,
                                    dynamic_pos=False, infer_size_from_fraction=True, edge_map=None):
         generated_files = []
         if just_copy_last:
@@ -397,13 +397,13 @@ class GraphAnimator():
         deactivated_edge_color = [0.3, 0.3, 0.3, deactivated_edge_alpha]
 
         min_vertex_size_shrinking_factor = 2
-        size = self.network.new_vertex_property('float')
-        if not infer_size_from_fraction and size_map is None or (infer_size_from_fraction and fraction_map is None):
+        v_state = self.network.new_vertex_property('float')
+        if not infer_size_from_fraction and vertex_state_map is None or (infer_size_from_fraction and fraction_map is None):
             infer_size_from_fraction = False
-            if size_map is None:
-                size.a = [1] * self.network.num_vertices()
+            if vertex_state_map is None:
+                v_state.a = [1] * self.network.num_vertices()
             else:
-                size = copy.copy(size_map)
+                v_state = copy.copy(vertex_state_map)
 
         colors = self.network.vp['node_color']
         interpolated_size = self.network.new_vertex_property('float')
@@ -446,7 +446,7 @@ class GraphAnimator():
                     new_frac = {-1}
                     new_frac_len = 1
                 if infer_size_from_fraction:
-                    size[v] = new_frac_len
+                    v_state[v] = new_frac_len
                 current_frac = last_frac | new_frac
                 current_fraction_map[v] = current_frac
                 vanish = last_frac - new_frac
@@ -488,13 +488,13 @@ class GraphAnimator():
                             active_edges[e] = False
         else:
             if isinstance(color_map, dict):
-                color_values = size
+                v_color_vals = v_state
             else:
-                color_values = prop_to_size(size, mi=0, ma=1, power=1)
+                v_color_vals = prop_to_size(v_state, mi=0, ma=1, power=1)
             for v in self.network.vertices():
-                val = size[v]
+                val = v_state[v]
                 inactive = self.inactive_value_f(val)
-                colors[v] = color_map(color_values[v]) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
+                colors[v] = color_map(v_color_vals[v]) if not inactive else (self.deactivated_color_nodes if not dynamic_pos else (self.deactivated_color_nodes[:3] + [0]))
                 colors[v].a[-1] = min(colors[v].a[-1], self.max_node_alpha)
                 if inactive:
                     if edges_graph is not None:
@@ -515,31 +515,11 @@ class GraphAnimator():
             last_edge_color = self.network.ep['edge_color']
             last_node_color = self.network.vp['last_node_color']
 
-        # calc output and node size
-        num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
-        tmp_output_size = min(self.output_size) * 0.9
-        max_vertex_size = np.sqrt((np.pi * (tmp_output_size / 2) ** 2) / num_nodes)
-        if max_vertex_size < min_vertex_size_shrinking_factor:
-            max_vertex_size = min_vertex_size_shrinking_factor
-        min_vertex_size = max_vertex_size / min_vertex_size_shrinking_factor
-        if len(set(size.a)) == 1:
-            max_vertex_size -= ((max_vertex_size - min_vertex_size) / 2)
-            if max_vertex_size < 1:
-                max_vertex_size = 1
-            min_vertex_size = max_vertex_size
-        output_size = self.output_size
-        size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
-        if self.first_iteration:
-            old_size = prop_to_size(size, mi=min_vertex_size, ma=max_vertex_size, power=1)
-            self.network.vp['last_node_size'] = old_size
-        else:
-            old_size = self.network.vp['last_node_size']
-
         self.print_f('cal pos', verbose=2)
         all_active_nodes = self.network.new_vertex_property('bool')
         if self.first_iteration:
             all_active_nodes = active_nodes
-            self.active_nodes = active_nodes
+            self.active_nodes = copy.copy(active_nodes)
         elif self.keep_inactive_nodes:
             all_active_nodes.a = self.active_nodes.a | active_nodes.a
         else:
@@ -589,11 +569,32 @@ class GraphAnimator():
                 if not self.pos[v]:
                     self.pos[v] = new_pos[v].a * np.random.normal(1, 0.01, 2)
             edges_graph = pos_tmp_net
-            nodes_graph = GraphView(pos_tmp_net, efilt=self.network.ep['no_edges_filt'])
+            nodes_graph_vfilt = label_largest_component(pos_tmp_net) if self.lc_only else None
+            nodes_graph = GraphView(pos_tmp_net, vfilt=nodes_graph_vfilt, efilt=self.network.ep['no_edges_filt'])
         else:
             #static graph -> no repositioning
             new_pos_abs = self.pos_abs
             new_pos = self.pos
+
+        # calc output and node size
+        num_nodes = nodes_graph.num_vertices() if dynamic_pos else self.network.num_vertices()
+        tmp_output_size = min(self.output_size) * 0.9
+        max_vertex_size = np.sqrt((np.pi * (tmp_output_size / 2) ** 2) / num_nodes)
+        if max_vertex_size < min_vertex_size_shrinking_factor:
+            max_vertex_size = min_vertex_size_shrinking_factor
+        min_vertex_size = max_vertex_size / min_vertex_size_shrinking_factor
+        if len(set(v_state.a)) == 1:
+            max_vertex_size -= ((max_vertex_size - min_vertex_size) / 2)
+            if max_vertex_size < 1:
+                max_vertex_size = 1
+            min_vertex_size = max_vertex_size
+        output_size = self.output_size
+        vertex_size = prop_to_size(v_state, mi=min_vertex_size, ma=max_vertex_size, power=1)
+        if self.first_iteration:
+            old_vertex_size = prop_to_size(v_state, mi=min_vertex_size, ma=max_vertex_size, power=1)
+            self.network.vp['last_node_size'] = old_vertex_size
+        else:
+            old_vertex_size = self.network.vp['last_node_size']
 
         for smoothing_step in range(smoothing):
             fac = (smoothing_step + 1) / smoothing
@@ -622,7 +623,7 @@ class GraphAnimator():
                 interpolated_color = nodes_graph.new_vertex_property('vector<float>')
                 interpolated_color.set_2d_array(new_fac * colors.get_2d_array((0, 1, 2, 3)) + old_fac * last_node_color.get_2d_array((0, 1, 2, 3)))
 
-            interpolated_size.a = old_fac * old_size.a + new_fac * size.a
+            interpolated_size.a = old_fac * old_vertex_size.a + new_fac * vertex_size.a
             if dynamic_pos:
                 interpolated_pos = nodes_graph.new_vertex_property('vector<float>')
                 interpolated_pos.set_2d_array(old_fac * self.pos_abs.get_2d_array((0, 1)) + new_fac * new_pos_abs.get_2d_array((0, 1)))
@@ -666,7 +667,7 @@ class GraphAnimator():
             bg_img.paste(fg_img, None, fg_img)
             bg_img.save(filename, 'PNG')
 
-        self.network.vp['last_node_size'] = size
+        self.network.vp['last_node_size'] = vertex_size
         self.network.ep['edge_color'] = edge_color
         self.network.vp['last_node_color'] = copy.copy(colors)
         if self.draw_fractions:
