@@ -41,7 +41,7 @@ class GraphAnimator():
     def __init__(self, dataframe, network, filename='output/network_evolution.png', verbose=1, df_iteration_key='iteration', df_vertex_key='vertex', df_cat_key=None,
                  df_size_key=None, df_edges_key=None, plot_each=1, fps=10, output_size=(1920, 1080), bg_color='white', fraction_groups=None, smoothing=1, rate=30, cmap=None,
                  inactive_fraction_f=lambda x: x == {-1}, inactive_value_f=lambda x: x <= 0, deactivated_color_nodes=None, mu=3, mark_new_active_nodes=False,
-                 pause_after_iteration=0, largest_component_only=False, edge_blending=False, keep_inactive_nodes=True, max_node_alpha=0.8):
+                 pause_after_iteration=0, largest_component_only=False, edge_blending=False, keep_inactive_nodes=True, max_node_alpha=0.9):
         assert isinstance(dataframe, pd.DataFrame)
         self.df = dataframe
         self.df_iteration_key = df_iteration_key
@@ -391,7 +391,7 @@ class GraphAnimator():
                 self.output_filenum += 1
             self.print_f('Copy file:', orig_filename, ' X ', smoothing, verbose=2)
             return generated_files
-        default_edge_alpha = (1 / np.log2(self.network.num_edges())) if self.network.num_edges() > 100 else 0.9
+        default_edge_alpha = (1 / np.log2(self.network.num_nodes())) if self.network.num_edges() > 100 else 0.9
         default_edge_color = [0.3, 0.3, 0.3, default_edge_alpha]
         deactivated_edge_alpha = (1 / self.network.num_edges()) if self.network.num_edges() > 0 else 0
         deactivated_edge_color = [0.3, 0.3, 0.3, deactivated_edge_alpha]
