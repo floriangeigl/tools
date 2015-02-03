@@ -19,7 +19,7 @@ def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
 def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label="", y_label="", max_orig_lines=1000, alpha=0.1, verbose=True, file_ext='.png'):
     if verbose:
         printing.print_f('plot dataframe', class_name='pd_tools')
-    filename = filename if filename.endswith('.png') else filename + '.png'
+    filename = filename if filename.endswith('.png') or filename.endswith('.pdf') else filename + '.png'
     basics.create_folder_structure(filename)
     fig, ax = plt.subplots()
     if len(df.columns) < max_orig_lines:
