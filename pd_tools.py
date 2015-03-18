@@ -52,5 +52,5 @@ def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label=""
     ax.legend(handles, labels)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
-    plt.savefig(filename if filename.endswith(file_ext) else filename + file_ext)
+    plt.savefig(filename if filename.endswith(file_ext) else filename + file_ext, bbox_inches='tight')
     return df
