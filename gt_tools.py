@@ -36,6 +36,131 @@ def print_f(*args, **kwargs):
         kwargs.update({'class_name': 'gt_tools'})
     printing.print_f(*args, **kwargs)
 
+
+class SBMGenerator():
+    @staticmethod
+    def gen_stock_blockmodel(num_nodes=100, blocks=3, self_con=1, other_con=0.2, directed=False, degree_seq='powerlaw',
+                             powerlaw_exp=2.1, num_links=300, loops=False):
+        g = Graph(directed=directed)
+        com_pmap = g.new_vertex_property('int')
+        nodes_range = np.array(range(num_nodes))
+        for idx in nodes_range:
+            com_pmap[g.add_vertex()] = idx % blocks
+        g.vp['com'] = com_pmap
+        other_con /= (blocks - 1)
+
+        prob_pmap = g.new_vertex_property('float')
+        block_to_vertices = dict()
+        block_to_cumsum = dict()
+        if degree_seq == 'powerlaw':
+            degree_seq = 1 - stats.powerlaw.rvs(powerlaw_exp, size=num_nodes)
+        elif degree_seq == 'random':
+            degree_seq = np.random.random(size=num_nodes)
+        elif degree_seq == 'exp':
+            degree_seq = np.random.exponential(size=num_nodes)
+        else:
+            degree_seq = np.array([1.0] * num_nodes)
+        # print degree_seq
+        for i in range(blocks):
+            vertices_in_block = list(filter(lambda x: com_pmap[x] == i, g.vertices()))
+            block_to_vertices[i] = vertices_in_block
+            block_deg_seq = degree_seq[nodes_range % blocks == i]
+            block_deg_seq /= block_deg_seq.sum()
+            cum_sum = np.cumsum(block_deg_seq)
+            assert np.allclose(cum_sum[-1], 1)
+            block_to_cumsum[i] = cum_sum
+            for v, p in zip(vertices_in_block, block_deg_seq):
+                prob_pmap[v] = p
+        blocks_prob = list()
+        for i in range(blocks):
+            row = list()
+            for j in range(blocks):
+                if i == j:
+                    row.append(self_con)
+                else:
+                    row.append(other_con)
+            blocks_prob.append(np.array(row))
+        blocks_prob = np.array(blocks_prob)
+        blocks_prob /= blocks_prob.sum()
+        # print blocks_prob
+        cum_sum = np.cumsum(blocks_prob)
+        assert np.allclose(cum_sum[-1], 1)
+        # print cum_sum
+        links_created = 0
+        for v in g.vertices():
+            if True or v.in_degree() + v.out_degree() == 0:
+                src_block = com_pmap[v]
+                while True:
+                    dest_b = SBMGenerator.get_one_random_block(cum_sum, blocks, src_block)
+                    dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
+                    if loops or v != dest_v and g.edge(v, dest_v) is None:
+                        g.add_edge(v, dest_v)
+                        links_created += 1
+                        break
+
+        for link_idx in range(num_links - links_created):
+            edge = 1
+            src_v, dest_v = None, None
+            while edge is not None:
+                src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, blocks)
+                src_v = block_to_vertices[src_b][SBMGenerator.get_random_node(block_to_cumsum[src_b])]
+                dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
+                edge = g.edge(src_v, dest_v)
+                if edge is None and not loops and src_v == dest_v:
+                    edge = 1
+            g.add_edge(src_v, dest_v)
+        return g
+
+    @staticmethod
+    def get_random_node(cum_sum):
+        rand_num = np.random.random()
+        idx = 0
+        for idx, i in enumerate(cum_sum):
+            if i >= rand_num:
+                return idx
+        print 'warn: get rand num till end'
+        return idx
+
+    @staticmethod
+    def get_random_blocks(cum_sum, num_blocks):
+        rand_num = np.random.random()
+        idx = 0
+        for idx, i in enumerate(cum_sum):
+            if i >= rand_num:
+                return idx % num_blocks, int(idx / num_blocks)
+        print 'warn: get rand block till end'
+        return idx % num_blocks, int(idx / num_blocks)
+
+    @staticmethod
+    def get_one_random_block(cum_sum, num_blocks, row):
+        src_b = None
+        dest_b = None
+        while src_b is None or row != src_b:
+            src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, num_blocks)
+        return dest_b
+
+    @staticmethod
+    def analyse_graph(g):
+        print str(g)
+        deg_map = g.degree_property_map('total')
+        plt.close('all')
+        ser = pd.Series(deg_map.a)
+        ser.plot(kind='hist', bins=int(deg_map.a.max()), lw=0)
+        plt.xlabel('degree')
+        plt.ylabel('num nodes')
+        plt.show()
+        plt.close('all')
+        res = fit_powerlaw.Fit(deg_map.a)
+        sys.stdout.flush()
+        print 'powerlaw alpha:', res.power_law.alpha
+        print 'powerlaw xmin:', res.power_law.xmin
+        sys.stdout.flush()
+        graph_draw(g, vertex_fill_color=g.vp['com'],output_size=(200,200), vertex_size=prop_to_size(deg_map, mi=2, ma=15,power=1.))
+        plt.show()
+        print '=' * 80
+        sys.stdout.flush()
+
+
 # Generator Class works with GraphTool generators, as they provide more functionality than NetworkX Generators
 class GraphGenerator():
     # init generator
@@ -380,105 +505,3 @@ def calc_vertex_properties(graph, max_iter_ev=1000, max_iter_hits=1000):
     print_f("Calculating Degree Property Map")
     graph.vertex_properties["degree"] = graph.degree_property_map("total")
     return graph
-
-# plot graph to file
-# TODO: check if code of GraphAnimator can be used
-'''
-def draw_graph(run=0, min_nsize=None, max_nsize=None, size_property=None, file_format="png", output_size=4000, appendix="", label_color="orange", draw_labels=False):
-    if size_property == "degree":
-        size_map = self.graph.new_vertex_property('float')
-        for v in self.graph.vertices():
-            size_map[v] = v.out_degree() + v.in_degree()
-
-    if not (isinstance(size_property, int) or isinstance(size_property, float), isinstance(size_property, str)):
-        size_map = size_property
-
-    if min_nsize is None or max_nsize is None:
-        val = math.sqrt(self.graph.num_vertices()) / self.graph.num_vertices() * (output_size / 4)
-        mi = val if min_nsize is None else min_nsize
-        ma = val * 2 if max_nsize is None else max_nsize
-
-    if draw_labels:
-        try:
-            labels = self.graph.vertex_properties["label"]
-        except:
-            ls = self.graph.new_vertex_property("int")
-            for ndx, n in enumerate(self.graph.vertices()):
-                ls[n] = str(ndx)
-            self.graph.vertex_properties["label"] = ls
-            labels = self.graph.vertex_properties["label"]
-    else:
-        labels = self.graph.new_vertex_property("string")
-
-    if size_property is not None:
-        try:
-            self.draw_specific_graph(self.graph.vertex_properties["colorsComm"], "communities", output_size, label_color, "black", mi, ma, labels, run, appendix, file_format, label_pos=0, v_size_prop_map=size_map)
-        except Exception as e:
-            self.debug_msg("\x1b[31m" + str(e) + "\x1b[00m")
-    else:
-        try:
-            self.draw_specific_graph(self.graph.vertex_properties["colorsComm"], "communities", output_size, label_color, "black", mi, ma, labels, run, appendix, file_format, label_pos=0)
-        except Exception as e:
-            self.debug_msg("\x1b[31m" + str(e) + "\x1b[00m")
-
-        try:
-            self.draw_specific_graph(self.graph.vertex_properties["colorsMapping"], "mapping", output_size, label_color, "black", mi, ma, labels, run, appendix, file_format, label_pos=0)
-        except Exception as e:
-            self.debug_msg("\x1b[31m" + str(e) + "\x1b[00m")
-
-        try:
-            self.draw_specific_graph(self.graph.vertex_properties["colorsActivity"], "activity", output_size, label_color, "black", mi, ma, labels, run, appendix, file_format, label_pos=0)
-        except Exception as e:
-            self.debug_msg("\x1b[31m" + str(e) + "\x1b[00m")
-'''
-
-'''
-def draw_specific_graph(self, colors, color_type_in_outfname, output_size, label_color, edge_color, mi, ma, labels, run, appendix, file_format, label_pos=0, pos=None, v_size_prop_map=None):
-    if pos is None:
-        try:
-            pos = self.graph.vertex_properties["pos"]
-        except KeyError:
-            self.debug_msg("  --> Calculating SFDP layout positions!")
-            pos = sfdp_layout(self.graph)
-            self.graph.vertex_properties["pos"] = pos
-            self.debug_msg("  --> Done!")
-
-    if v_size_prop_map is None:
-        try:
-            v_size_prop_map = self.graph.vertex_properties["activity"]
-        except KeyError:
-            self.add_node_weights(0.0, 0.1)
-            v_size_prop_map = self.graph.vertex_properties["activity"]
-
-    graph_draw(self.graph, vertex_fill_color=colors, edge_color=edge_color, output_size=(output_size, output_size), vertex_text_color=label_color, pos=pos, vertex_size=(prop_to_size(v_size_prop_map, mi=mi, ma=ma)), vertex_text=labels, vertex_text_position=label_pos,
-               output=config.graph_dir + "{}_{}_run_{}{}.{}".format(self.graph_name, color_type_in_outfname, run, appendix, file_format))
-'''
-
-'''
-    def collect_colors(self, alpha=0.75):
-        self.debug_msg("Collecting Colors for Graphs")
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=self.graph.num_vertices())
-        cmap = plt.get_cmap('gist_rainbow')
-        norma = matplotlib.colors.Normalize(vmin=0.0, vmax=1.0)
-        camap = plt.get_cmap("Blues")
-        m = matplotlib.cm.ScalarMappable(norm=norm, cmap=cmap)
-        ma = matplotlib.cm.ScalarMappable(norm=norma, cmap=camap)
-
-        clist = self.graph.new_vertex_property("vector<float>")
-        calist = self.graph.new_vertex_property("vector<float>")
-        for x in xrange(self.graph.num_vertices()):
-            # color for node id
-            l = list(m.to_rgba(x))
-            l[3] = alpha
-            node = self.graph.vertex(x)
-            clist[node] = l
-
-            # color for activity / weight of node
-            weight = self.graph.vp["activity"][node]
-            la = list(ma.to_rgba(weight))
-            la[3] = alpha
-            calist[node] = la
-        self.graph.vp["colorsMapping"] = clist
-        self.graph.vp["colorsActivity"] = calist
-        self.graph.vp['colorsComm'] = community_structure(self.graph, 1000, 10)
-'''
