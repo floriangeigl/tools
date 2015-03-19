@@ -30,6 +30,7 @@ from scipy.stats import powerlaw, poisson
 from collections import defaultdict
 import traceback
 from basics import create_folder_structure
+import powerlaw as fit_powerlaw
 
 
 def print_f(*args, **kwargs):
@@ -75,13 +76,14 @@ class SBMGenerator():
         block_to_vertices = dict()
         block_to_cumsum = dict()
         if degree_seq == 'powerlaw':
-            degree_seq = 1 - stats.powerlaw.rvs(powerlaw_exp, size=num_nodes)
+            degree_seq = (1 - stats.powerlaw.rvs(powerlaw_exp, size=num_nodes))
         elif degree_seq == 'random':
             degree_seq = np.random.random(size=num_nodes)
         elif degree_seq == 'exp':
             degree_seq = np.random.exponential(size=num_nodes)
         else:
             degree_seq = np.array([1.0] * num_nodes)
+        degree_seq.sort()
         # print degree_seq
         for i in range(blocks):
             vertices_in_block = list(filter(lambda x: com_pmap[x] == i, g.vertices()))
@@ -162,7 +164,7 @@ class SBMGenerator():
         return dest_b
 
     @staticmethod
-    def analyse_graph(g):
+    def analyse_graph(g, filename='output/net', draw_net=False):
         print str(g)
         deg_map = g.degree_property_map('total')
         plt.close('all')
@@ -170,17 +172,16 @@ class SBMGenerator():
         ser.plot(kind='hist', bins=int(deg_map.a.max()), lw=0)
         plt.xlabel('degree')
         plt.ylabel('num nodes')
-        plt.show()
-        plt.close('all')
         res = fit_powerlaw.Fit(deg_map.a)
-        sys.stdout.flush()
         print 'powerlaw alpha:', res.power_law.alpha
         print 'powerlaw xmin:', res.power_law.xmin
-        sys.stdout.flush()
-        graph_draw(g, vertex_fill_color=g.vp['com'],output_size=(200,200), vertex_size=prop_to_size(deg_map, mi=2, ma=15,power=1.))
-        plt.show()
-        print '=' * 80
-        sys.stdout.flush()
+        plt.title('powerlaw alpha:' + str(res.power_law.alpha) + ' || powerlaw xxmin:' + str(res.power_law.xmin))
+        plt.savefig(filename + '_degdist.png')
+        plt.close('all')
+        if draw_net:
+            graph_draw(g, vertex_fill_color=g.vp['com'], output_size=(200, 200),
+                       vertex_size=prop_to_size(deg_map, mi=2, ma=15, power=1.), output=filename + '_network.png',
+                       bg_color=[1, 1, 1, 1])
 
 
 # Generator Class works with GraphTool generators, as they provide more functionality than NetworkX Generators
