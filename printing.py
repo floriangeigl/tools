@@ -4,6 +4,7 @@ import sys
 import warnings
 import threading
 import os
+import psutil
 
 
 def print_f(*args, **kwargs):
@@ -41,6 +42,9 @@ def print_matrix(matrix):
                 print(str(j)[:10].center(10), end=' ')
         print('')
 
+
+def get_memory_consumption_in_mb():
+    return psutil.Process(os.getpid()).get_memory_info()[0] / float(2 ** 20)
 
 class bcolors:
     prefix = '\33'
