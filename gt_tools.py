@@ -24,6 +24,7 @@ import numpy as np
 import operator
 import math
 from scipy.sparse.linalg.eigen.arpack import eigsh as largest_eigsh
+import scipy.stats as stats
 import sys
 from scipy.stats import powerlaw, poisson
 from collections import defaultdict
@@ -35,6 +36,27 @@ def print_f(*args, **kwargs):
     if 'class_name' not in kwargs:
         kwargs.update({'class_name': 'gt_tools'})
     printing.print_f(*args, **kwargs)
+
+
+def load_edge_list(filename, directed=False):
+    g = Graph(directed=directed)
+    nodeid_to_v = defaultdict(g.add_vertex)
+    with open(filename, 'r') as f:
+        for line in f:
+            if not line.startswith('#'):
+                nodes = map(int, line.strip().split())
+                try:
+                    src = nodeid_to_v[nodes[0]]
+                except IndexError:
+                    continue
+                dest = map(lambda x: nodeid_to_v[x], nodes[1:])
+                for d in dest:
+                    g.add_edge(src, d)
+    node_id_pmap = g.new_vertex_property('int')
+    for id, v in nodeid_to_v.iteritems():
+        node_id_pmap[v] = id
+    g.vp['NodeId'] = node_id_pmap
+    return g
 
 
 class SBMGenerator():
