@@ -70,7 +70,7 @@ class SBMGenerator():
         for idx in nodes_range:
             com_pmap[g.add_vertex()] = idx % blocks
         g.vp['com'] = com_pmap
-        other_con /= (blocks - 1)
+        other_con /= ((blocks - 1) if blocks > 1 else 1)
 
         prob_pmap = g.new_vertex_property('float')
         block_to_vertices = dict()
