@@ -175,7 +175,7 @@ class SBMGenerator():
         res = fit_powerlaw.Fit(deg_map.a)
         print 'powerlaw alpha:', res.power_law.alpha
         print 'powerlaw xmin:', res.power_law.xmin
-        plt.title('powerlaw alpha:' + str(res.power_law.alpha) + ' || powerlaw xxmin:' + str(res.power_law.xmin))
+        plt.title('powerlaw alpha:' + str(res.power_law.alpha) + ' || powerlaw xmin:' + str(res.power_law.xmin))
         plt.savefig(filename + '_degdist.png')
         plt.close('all')
         if draw_net:
