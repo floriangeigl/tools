@@ -60,7 +60,7 @@ def load_edge_list(filename, directed=False):
     return g
 
 
-def load_property(network, filename, type='int', resolve='NodeId', sep=None):
+def load_property(network, filename, type='int', resolve='NodeId', sep=None, line_groups=False):
     assert isinstance(network,Graph)
     type = type.lower()
     if type == 'str' or type == 'string':
@@ -76,19 +76,37 @@ def load_property(network, filename, type='int', resolve='NodeId', sep=None):
         res_map = network.vp[resolve]
         resolve = {str(res_map[v]): v for v in network.vertices()}
     mapped_vertices = set()
+    com_id = 0
     with open(filename, 'r') as f:
         for line in filter(lambda l_line: not l_line.startswith('#'), f):
             line = line.strip().split(sep)
-            try:
-                v = network.vertex(int(line[0])) if resolve is None else resolve[line[0]]
-                pmap[v] = mapper(line[1])
-                mapped_vertices.add(int(v))
-            except KeyError:
-                pass
+            if line_groups:
+                line_vertices = []
+                appender = line_vertices.append
+                for i in line:
+                    try:
+                        if resolve is None:
+                            i = network.vertex(int(i))
+                        else:
+                            i = resolve[i]
+                        appender(i)
+                    except KeyError:
+                        pass
+                for v in line_vertices:
+                    pmap[v] = mapper(com_id)
+                    mapped_vertices.add(int(v))
+                com_id += 1
+            else:
+                try:
+                    v = network.vertex(int(line[0])) if resolve is None else resolve[line[0]]
+                    pmap[v] = mapper(line[1])
+                    mapped_vertices.add(int(v))
+                except KeyError:
+                    pass
     unmapped_v = set(map(int,network.vertices())) - mapped_vertices
     if unmapped_v:
-        print 'file contained no mapping for', len(unmapped_v), 'vertices'
-        print 'unmapped vertices:', unmapped_v
+        print filename, 'contained no mapping for', len(unmapped_v) / network.num_vertices() * 100, '% of all vertices'
+        print 'unmapped vertices:', list(unmapped_v)[:100]
     return pmap
 
 
@@ -208,7 +226,7 @@ class SBMGenerator():
         print 'powerlaw alpha:', res.power_law.alpha
         print 'powerlaw xmin:', res.power_law.xmin
         plt.title('powerlaw alpha:' + str(res.power_law.alpha) + ' || powerlaw xmin:' + str(res.power_law.xmin))
-        plt.savefig(filename + '_degdist.png')
+        plt.savefig(filename + '_degdist.png', bbox_tight=True)
         plt.close('all')
         if draw_net:
             graph_draw(g, vertex_fill_color=g.vp['com'], output_size=(200, 200),
@@ -370,7 +388,7 @@ class GraphGenerator():
         if plot_stat:
             plt.clf()
             plt.hist(all_prop, bins=15)
-            plt.savefig("prop_dist.png")
+            plt.savefig("prop_dist.png", bbox_tight=True)
             plt.close('all')
 
         self.print_f('count edges between blocks')
