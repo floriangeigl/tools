@@ -75,11 +75,20 @@ def load_property(network, filename, type='int', resolve='NodeId', sep=None):
     if resolve is not None:
         res_map = network.vp[resolve]
         resolve = {str(res_map[v]): v for v in network.vertices()}
+    mapped_vertices = set()
     with open(filename, 'r') as f:
         for line in filter(lambda l_line: not l_line.startswith('#'), f):
             line = line.strip().split(sep)
-            v = network.vertex(int(line[0])) if resolve is None else resolve[line[0]]
-            pmap[v] = mapper(line[1])
+            try:
+                v = network.vertex(int(line[0])) if resolve is None else resolve[line[0]]
+                pmap[v] = mapper(line[1])
+                mapped_vertices.add(int(v))
+            except KeyError:
+                pass
+    unmapped_v = set(map(int,network.vertices())) - mapped_vertices
+    if unmapped_v:
+        print 'file contained no mapping for', len(unmapped_v), 'vertices'
+        print 'unmapped vertices:', unmapped_v
     return pmap
 
 
