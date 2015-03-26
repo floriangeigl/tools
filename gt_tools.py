@@ -60,6 +60,29 @@ def load_edge_list(filename, directed=False):
     return g
 
 
+def load_property(network, filename, type='int', resolve='NodeId', sep=None):
+    assert isinstance(network,Graph)
+    type = type.lower()
+    if type == 'str' or type == 'string':
+        pmap = network.new_vertex_property('string')
+        mapper = lambda x: str(x)
+    else:
+        pmap = newtwork.new_vertex_property(type)
+        if type == 'int':
+            mapper = lambda x: int(x)
+        else:
+            mapper = lambda x: float(x)
+    if resolve is not None:
+        res_map = network.vp[resolve]
+        resolve = {str(res_map[v]): v for v in network.vertices()}
+    with open(filename, 'r') as f:
+        for line in filter(lambda l_line: not l_line.startswith('#'), f):
+            line = line.strip().split(sep)
+            v = network.vertex(int(line[0])) if resolve is None else resolve[line[0]]
+            pmap[v] = mapper(line[1])
+    return pmap
+
+
 class SBMGenerator():
     @staticmethod
     def gen_stock_blockmodel(num_nodes=100, blocks=3, self_con=1, other_con=0.2, directed=False, degree_seq='powerlaw',
