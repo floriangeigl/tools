@@ -67,7 +67,7 @@ def load_property(network, filename, type='int', resolve='NodeId', sep=None):
         pmap = network.new_vertex_property('string')
         mapper = lambda x: str(x)
     else:
-        pmap = newtwork.new_vertex_property(type)
+        pmap = network.new_vertex_property(type)
         if type == 'int':
             mapper = lambda x: int(x)
         else:
