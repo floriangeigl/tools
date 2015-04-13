@@ -135,14 +135,17 @@ class SBMGenerator():
             degree_seq = np.array([1.0] * num_nodes)
         degree_seq.sort()
         # print degree_seq
+        block_deg_seq_sum = dict()
         for i in range(blocks):
             vertices_in_block = list(filter(lambda x: com_pmap[x] == i, g.vertices()))
             block_to_vertices[i] = vertices_in_block
             block_deg_seq = degree_seq[nodes_range % blocks == i]
-            block_deg_seq /= block_deg_seq.sum()
+            deg_seq_sum = block_deg_seq.sum()
+            block_deg_seq /= deg_seq_sum
             cum_sum = np.cumsum(block_deg_seq)
             assert np.allclose(cum_sum[-1], 1)
             block_to_cumsum[i] = cum_sum
+            block_deg_seq_sum[i] = deg_seq_sum
             for v, p in zip(vertices_in_block, block_deg_seq):
                 prob_pmap[v] = p
         blocks_prob = list()
@@ -150,9 +153,10 @@ class SBMGenerator():
             row = list()
             for j in range(blocks):
                 if i == j:
-                    row.append(self_con)
+                    val = self_con
                 else:
-                    row.append(other_con)
+                    val = other_con
+                row.append(val * block_deg_seq_sum[i] * block_deg_seq_sum[j])
             blocks_prob.append(np.array(row))
         blocks_prob = np.array(blocks_prob)
         blocks_prob /= blocks_prob.sum()
