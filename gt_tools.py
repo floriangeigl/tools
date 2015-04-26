@@ -40,6 +40,8 @@ def print_f(*args, **kwargs):
 
 
 def load_edge_list(filename, directed=False):
+    if os.path.isfile(filename + '.gt'):
+        return load_graph(filename + '.gt')
     g = Graph(directed=directed)
     nodeid_to_v = defaultdict(g.add_vertex)
     with open(filename, 'r') as f:
@@ -57,6 +59,9 @@ def load_edge_list(filename, directed=False):
     for id, v in nodeid_to_v.iteritems():
         node_id_pmap[v] = id
     g.vp['NodeId'] = node_id_pmap
+    g.gp['filename'] = g.new_graph_property('string')
+    g.gp['filename'] = filename
+    g.save(filename + '.gt', fmt='gt')
     return g
 
 
