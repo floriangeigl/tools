@@ -81,8 +81,7 @@ def load_edge_list(filename, directed=False, id_dtype='int'):
 def net_from_sparse_adj(mat, directed=True):
     g = Graph(directed=directed)
     assert mat.shape[0] == mat.shape[1]
-    for v in range(mat.shape[0]):
-        g.add_vertex()
+    g.add_vertex(mat.shape[0])
     if np.issubdtype(mat.dtype, int):
         w = g.new_edge_property('int')
     else:
