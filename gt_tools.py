@@ -89,8 +89,8 @@ def net_from_sparse_adj(mat, directed=True):
         w = g.new_edge_property('float')
     row_idx, col_idx = mat.nonzero()
     for d, r, c in zip(mat.data, row_idx, col_idx):
-        src_v = w.vertex(c)
-        dest_v = w.vertex(r)
+        src_v = g.vertex(c)
+        dest_v = g.vertex(r)
         e = g.add_edge(src_v, dest_v)
         w[e] = d
     g.ep['weights'] = w
