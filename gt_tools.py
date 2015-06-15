@@ -39,29 +39,61 @@ def print_f(*args, **kwargs):
     printing.print_f(*args, **kwargs)
 
 
-def load_edge_list(filename, directed=False):
-    if os.path.isfile(filename + '.gt'):
-        return load_graph(filename + '.gt')
+def load_edge_list(filename, directed=False, id_dtype='int'):
+    store_fname = filename + '.gt'
+    if os.path.isfile(store_fname):
+        try:
+            g = load_graph(store_fname)
+        except:
+            print 'failed loading. recreate graph'
+            os.remove(store_fname)
+            return load_edge_list(filename)
+        if 'mtime' in g.gp.keys() and g.gp['mtime'] != os.path.getmtime(filename):
+            print 'modified edge-list. recreate graph'
+            os.remove(filename + '.gt')
+            return load_edge_list(filename)
+        else:
+            return g
+    else:
+        g = Graph(directed=directed)
+        nodeid_to_v = defaultdict(g.add_vertex)
+        with open(filename, 'r') as f:
+            for line in f:
+                if not line.startswith('#'):
+                    nodes = map(int, line.strip().split())
+                    try:
+                        src = nodeid_to_v[nodes[0]]
+                    except IndexError:
+                        continue
+                    dest = map(lambda x: nodeid_to_v[x], nodes[1:])
+                    for d in dest:
+                        g.add_edge(src, d)
+        node_id_pmap = g.new_vertex_property(id_dtype)
+        for id, v in nodeid_to_v.iteritems():
+            node_id_pmap[v] = id
+        g.vp['NodeId'] = node_id_pmap
+        g.gp['filename'] = g.new_graph_property('string')
+        g.gp['filename'] = filename
+        g.gp['mtime'] = g.new_graph_property('object', os.path.getmtime(filename))
+        g.save(filename + '.gt', fmt='gt')
+    return g
+
+def net_from_sparse_adj(mat, directed=True):
     g = Graph(directed=directed)
-    nodeid_to_v = defaultdict(g.add_vertex)
-    with open(filename, 'r') as f:
-        for line in f:
-            if not line.startswith('#'):
-                nodes = map(int, line.strip().split())
-                try:
-                    src = nodeid_to_v[nodes[0]]
-                except IndexError:
-                    continue
-                dest = map(lambda x: nodeid_to_v[x], nodes[1:])
-                for d in dest:
-                    g.add_edge(src, d)
-    node_id_pmap = g.new_vertex_property('int')
-    for id, v in nodeid_to_v.iteritems():
-        node_id_pmap[v] = id
-    g.vp['NodeId'] = node_id_pmap
-    g.gp['filename'] = g.new_graph_property('string')
-    g.gp['filename'] = filename
-    g.save(filename + '.gt', fmt='gt')
+    assert mat.shape[0] == mat.shape[1]
+    for v in range(mat.shape[0]):
+        g.add_vertex()
+    if np.issubdtype(mat.dtype, int):
+        w = g.new_edge_property('int')
+    else:
+        w = g.new_edge_property('float')
+    row_idx, col_idx = mat.nonzero()
+    for d, r, c in zip(mat.data, row_idx, col_idx):
+        src_v = w.vertex(c)
+        dest_v = w.vertex(r)
+        e = g.add_edge(src_v, dest_v)
+        w[e] = d
+    g.ep['weights'] = w
     return g
 
 
