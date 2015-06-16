@@ -25,6 +25,7 @@ import operator
 import math
 from scipy.sparse.linalg.eigen.arpack import eigsh as largest_eigsh
 import scipy.stats as stats
+from scipy.sparse import csr_matrix, issparse
 import sys
 from scipy.stats import powerlaw, poisson
 from collections import defaultdict
@@ -78,21 +79,29 @@ def load_edge_list(filename, directed=False, id_dtype='int'):
         g.save(filename + '.gt', fmt='gt')
     return g
 
-def net_from_sparse_adj(mat, directed=True):
+
+def net_from_adj(mat, directed=True, parallel_edges=True):
     g = Graph(directed=directed)
     assert mat.shape[0] == mat.shape[1]
+    if not issparse(mat):
+        mat = csr_matrix(mat)
     g.add_vertex(mat.shape[0])
-    if np.issubdtype(mat.dtype, int):
-        w = g.new_edge_property('int')
-    else:
-        w = g.new_edge_property('float')
+    if not parallel_edges:
+        if np.issubdtype(mat.dtype, int):
+            w = g.new_edge_property('int')
+        else:
+            w = g.new_edge_property('float')
     row_idx, col_idx = mat.nonzero()
     for d, r, c in zip(mat.data, row_idx, col_idx):
         src_v = g.vertex(c)
         dest_v = g.vertex(r)
-        e = g.add_edge(src_v, dest_v)
-        w[e] = d
-    g.ep['weights'] = w
+        if parallel_edges:
+            for i in xrange(int(d)):
+                g.add_edge(src_v, dest_v)
+        else:
+            w[g.add_edge(src_v, dest_v)] = d
+    if not parallel_edges:
+        g.ep['weights'] = w
     return g
 
 
