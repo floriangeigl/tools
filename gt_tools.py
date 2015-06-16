@@ -92,7 +92,11 @@ def net_from_adj(mat, directed=True, parallel_edges=True):
         else:
             w = g.new_edge_property('float')
     row_idx, col_idx = mat.nonzero()
-    for d, r, c in zip(mat.data, row_idx, col_idx):
+    data = mat.data
+    if not directed:
+        # diag-upper part only (including diag)
+        row_idx, col_idx, data = zip(*[(r, c, d) for r, c, d in zip(row_idx, col_idx, data) if c <= r])
+    for d, r, c in zip(data, row_idx, col_idx):
         src_v = g.vertex(c)
         dest_v = g.vertex(r)
         if parallel_edges:
