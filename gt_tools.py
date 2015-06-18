@@ -85,32 +85,33 @@ def net_from_adj(mat, directed=True, parallel_edges=True):
     assert mat.shape[0] == mat.shape[1]
     if not issparse(mat):
         mat = csr_matrix(mat)
+    elif not isinstance(mat, csr_matrix):
+        mat = mat.tocsr()
     g.add_vertex(mat.shape[0])
+    w = None
     if not parallel_edges:
         if np.issubdtype(mat.dtype, int):
             w = g.new_edge_property('int')
         else:
             w = g.new_edge_property('float')
     row_idx, col_idx = mat.nonzero()
-    data = mat.data
+    data = np.array(mat.data)
     if not directed:
         # diag-upper part only (including diag)
         row_idx, col_idx, data = zip(*[(r, c, d) for r, c, d in zip(row_idx, col_idx, data) if c <= r])
-    for d, r, c in zip(data, row_idx, col_idx):
-        src_v = g.vertex(c)
-        dest_v = g.vertex(r)
-        if parallel_edges:
+    if parallel_edges:
+        for r, c, d in zip(map(lambda x: g.vertex(x), row_idx), map(lambda x: g.vertex(x), col_idx), data):
             for i in xrange(int(d)):
-                g.add_edge(src_v, dest_v)
-        else:
-            w[g.add_edge(src_v, dest_v)] = d
-    if not parallel_edges:
+                g.add_edge(c, r)
+    else:
+        g.add_edge_list(zip(col_idx, row_idx))
+        w.a = data
+    if w:
         g.ep['weights'] = w
     return g
 
-
 def load_property(network, filename, type='int', resolve='NodeId', sep=None, line_groups=False):
-    assert isinstance(network,Graph)
+    assert isinstance(network, Graph)
     type = type.lower()
     if type == 'str' or type == 'string':
         pmap = network.new_vertex_property('string')
