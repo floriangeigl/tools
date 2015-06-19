@@ -100,13 +100,11 @@ def net_from_adj(mat, directed=True, parallel_edges=True):
         # diag-upper part only (including diag)
         row_idx, col_idx, data = zip(*[(r, c, d) for r, c, d in zip(row_idx, col_idx, data) if c <= r])
     if parallel_edges:
-        for r, c, d in zip(map(lambda x: g.vertex(x), row_idx), map(lambda x: g.vertex(x), col_idx), data):
-            for i in xrange(int(d)):
-                g.add_edge(c, r)
-    else:
-        g.add_edge_list(zip(col_idx, row_idx))
-        w.a = data
+        row_idx = np.array([r for r, d in zip(row_idx, data) for i in xrange(int(d))])
+        col_idx = np.array([c for c, d in zip(col_idx, data) for i in xrange(int(d))])
+    g.add_edge_list(zip(col_idx, row_idx))
     if w:
+        w.a = data
         g.ep['weights'] = w
     return g
 
