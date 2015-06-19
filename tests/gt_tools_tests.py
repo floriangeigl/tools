@@ -6,23 +6,11 @@ from graph_tool.all import *
 import numpy as np
 
 
-class TestGTTools(unittest.TestCase):
+class Test_net_from_adj(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_net_from_adj(self):
-        # unweighted directed network without parallel edges
-        g = price_network(100, m=50)
-        a = adjacency(g)
-        g_restored = gt_tools.net_from_adj(a)
-        self.assertTrue(g.num_vertices() == g_restored.num_vertices())
-        self.assertTrue(g.num_edges() == g_restored.num_edges())
-        for e in g.edges():
-            er = g_restored.edge(g_restored.vertex(e.source()), g_restored.vertex(e.target()))
-            self.assertTrue(er is not None)
-            self.assertTrue(int(er.source()) == int(e.source()))
-            self.assertTrue(int(er.target()) == int(e.target()))
-
+    def test_unweighted_undirected_without_parallel(self):
         # unweighted undirected network without parallel edges
         g = price_network(100, m=50, directed=False)
         a = adjacency(g)
@@ -35,6 +23,20 @@ class TestGTTools(unittest.TestCase):
             self.assertTrue(int(er.source()) == int(e.source()))
             self.assertTrue(int(er.target()) == int(e.target()))
 
+    def test_unweighted_directed_without_parallel(self):
+        # unweighted directed network without parallel edges
+        g = price_network(100, m=50)
+        a = adjacency(g)
+        g_restored = gt_tools.net_from_adj(a)
+        self.assertTrue(g.num_vertices() == g_restored.num_vertices())
+        self.assertTrue(g.num_edges() == g_restored.num_edges())
+        for e in g.edges():
+            er = g_restored.edge(g_restored.vertex(e.source()), g_restored.vertex(e.target()))
+            self.assertTrue(er is not None)
+            self.assertTrue(int(er.source()) == int(e.source()))
+            self.assertTrue(int(er.target()) == int(e.target()))
+
+    def test_unweighted_directed_with_parallel(self):
         # unweighted directed network with parallel edges
         g = price_network(100, m=50)
         for e in list(g.edges()):
@@ -51,6 +53,7 @@ class TestGTTools(unittest.TestCase):
         self.assertTrue(np.all(c == c_restored))
         self.assertTrue(np.all(a.data == a_restored.data))
 
+    def test_weighted_directed_without_parallel(self):
         # weighted directed network without parallel edges
         g = price_network(100, m=50)
         ew = g.new_edge_property('float')
