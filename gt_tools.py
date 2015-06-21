@@ -40,7 +40,7 @@ def print_f(*args, **kwargs):
     printing.print_f(*args, **kwargs)
 
 
-def load_edge_list(filename, directed=False, id_dtype='int'):
+def load_edge_list(filename, directed=False, id_dtype='int', sep='\t', comment='#'):
     store_fname = filename + '.gt'
     if os.path.isfile(store_fname):
         try:
@@ -58,17 +58,17 @@ def load_edge_list(filename, directed=False, id_dtype='int'):
     else:
         g = Graph(directed=directed)
         nodeid_to_v = defaultdict(g.add_vertex)
+        edge_list = []
         with open(filename, 'r') as f:
-            for line in f:
-                if not line.startswith('#'):
-                    nodes = map(int, line.strip().split())
-                    try:
-                        src = nodeid_to_v[nodes[0]]
-                    except IndexError:
-                        continue
-                    dest = map(lambda x: nodeid_to_v[x], nodes[1:])
-                    for d in dest:
-                        g.add_edge(src, d)
+            for line in filter(lambda x: not x.startswith(comment), f):
+                nodes = map(int, line.strip().split(sep))
+                try:
+                    src = int(nodeid_to_v[nodes[0]])
+                except IndexError:
+                    continue
+                dest = map(lambda x: int(nodeid_to_v[x]), nodes[1:])
+                edge_list.extend([(src, d) for d in dest])
+        g.add_edge_list(edge_list)
         node_id_pmap = g.new_vertex_property(id_dtype)
         for id, v in nodeid_to_v.iteritems():
             node_id_pmap[v] = id
