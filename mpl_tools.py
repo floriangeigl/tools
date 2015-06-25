@@ -9,7 +9,7 @@ import numpy as np
 
 
 def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, cmap='jet', interpolation='none',
-                         aspect='auto', origin='lower', colorbar=True):
+                         aspect='auto', origin='lower', colorbar=True, replace_not_finite=True):
     x = np.array(x)
     y = np.array(y)
     if logx:
@@ -19,7 +19,10 @@ def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, 
 
     data_matrix, xedges, yedges = np.histogram2d(x, y, bins=bins)
     if logbins:
-        data_matrix = np.log10(data_matrix + 1)
+        data_matrix = np.log10(data_matrix)
+    if replace_not_finite:
+        data_matrix_filter = np.invert(np.isfinite(data_matrix))
+        data_matrix[data_matrix_filter] = 0.
 
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
     ax = plt.imshow(data_matrix.T if origin is 'lower' else data_matrix, extent=extent, origin=origin, aspect=aspect,

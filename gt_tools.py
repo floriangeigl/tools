@@ -165,8 +165,8 @@ class SBMGenerator():
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         nodes_range = np.array(range(num_nodes))
-        for idx in nodes_range:
-            com_pmap[g.add_vertex()] = idx % blocks
+        g.add_vertex(num_nodes)
+        com_pmap.a = [v % blocks for v in map(int, g.vertices())]
         g.vp['com'] = com_pmap
         other_con /= ((blocks - 1) if blocks > 1 else 1)
 
@@ -184,9 +184,10 @@ class SBMGenerator():
         degree_seq.sort()
         # print degree_seq
         block_deg_seq_sum = dict()
+        vertices_array = np.array(map(int, g.vertices()))
         for i in range(blocks):
-            vertices_in_block = list(filter(lambda x: com_pmap[x] == i, g.vertices()))
-            block_to_vertices[i] = vertices_in_block
+            mask = com_pmap.a == i
+            block_to_vertices[i] = vertices_array[mask]
             block_deg_seq = degree_seq[nodes_range % blocks == i]
             deg_seq_sum = block_deg_seq.sum()
             block_deg_seq /= deg_seq_sum
@@ -194,8 +195,7 @@ class SBMGenerator():
             assert np.allclose(cum_sum[-1], 1)
             block_to_cumsum[i] = cum_sum
             block_deg_seq_sum[i] = deg_seq_sum
-            for v, p in zip(vertices_in_block, block_deg_seq):
-                prob_pmap[v] = p
+            prob_pmap.a[mask] = block_deg_seq
         blocks_prob = list()
         for i in range(blocks):
             row = list()
@@ -212,29 +212,34 @@ class SBMGenerator():
         cum_sum = np.cumsum(blocks_prob)
         assert np.allclose(cum_sum[-1], 1)
         # print cum_sum
-        links_created = 0
+        edges = set()
         for v in g.vertices():
-            if True or v.in_degree() + v.out_degree() == 0:
+            if directed or not v.out_degree():
                 src_block = com_pmap[v]
-                while True:
+                init_len = len(edges)
+                while init_len == len(edges):
                     dest_b = SBMGenerator.get_one_random_block(cum_sum, blocks, src_block)
                     dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
-                    if loops or v != dest_v and g.edge(v, dest_v) is None:
-                        g.add_edge(v, dest_v)
-                        links_created += 1
-                        break
+                    link = (v, dest_v) if directed else tuple(sorted([v, dest_v]))
+                    is_loop = v == dest_v
+                    if not is_loop:
+                        edges.add(link)
+                    elif loops:
+                        edges.add(tuple(sorted(link)))
 
-        for link_idx in range(num_links - links_created):
-            edge = 1
-            src_v, dest_v = None, None
-            while edge is not None:
+        for link_idx in range(num_links - len(edges)):
+            init_len = len(edges)
+            while init_len == len(edges):
                 src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, blocks)
                 src_v = block_to_vertices[src_b][SBMGenerator.get_random_node(block_to_cumsum[src_b])]
                 dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
-                edge = g.edge(src_v, dest_v)
-                if edge is None and not loops and src_v == dest_v:
-                    edge = 1
-            g.add_edge(src_v, dest_v)
+                link = (src_v, dest_v) if directed else tuple(sorted([src_v, dest_v]))
+                is_loop = src_v == dest_v
+                if not is_loop:
+                    edges.add(link)
+                elif loops:
+                    edges.add(tuple(sorted(link)))
+        g.add_edge_list(list(edges))
         return g
 
     @staticmethod
