@@ -9,7 +9,8 @@ import numpy as np
 
 
 def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, cmap='jet', interpolation='none',
-                         aspect='auto', origin='lower', colorbar=True, replace_not_finite=True, axis_range=None, **kwargs):
+                         aspect='auto', origin='lower', colorbar=True, replace_not_finite=True, axis_range=None,
+                         cb_range=None, **kwargs):
     x = np.array(x)
     y = np.array(y)
     if logx:
@@ -46,8 +47,16 @@ def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, 
     plt.ylim([yedges[0], yedges[-1]])
     if colorbar:
         cb = plt.colorbar(ax)
-        if logbins:
+        ticks = []
+        if cb_range is not None:
+            if len(cb_range) == 2:
+                ticks = range(cb_range[0], cb_range[1])
+            else:
+                ticks = cb_range
+            cb.set_ticks(ticks)
+        elif logbins:
             ticks = range(int(cb.vmin), int(cb.vmax) + 1)
             cb.set_ticks(ticks)
+        if logbins:
             cb.ax.set_yticklabels(map(tick_labels_log, map(int, ticks)))
     return ax
