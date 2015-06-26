@@ -9,15 +9,19 @@ import numpy as np
 
 
 def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, cmap='jet', interpolation='none',
-                         aspect='auto', origin='lower', colorbar=True, replace_not_finite=True):
+                         aspect='auto', origin='lower', colorbar=True, replace_not_finite=True, axis_range=None, **kwargs):
     x = np.array(x)
     y = np.array(y)
     if logx:
         x = np.log10(x)
+        if axis_range is not None:
+            axis_range[0] = np.log10(np.array(axis_range[0]))
     if logy:
         y = np.log10(y)
+        if axis_range is not None:
+            axis_range[1] = np.log10(np.array(axis_range[1]))
 
-    data_matrix, xedges, yedges = np.histogram2d(x, y, bins=bins)
+    data_matrix, xedges, yedges = np.histogram2d(x, y, bins=bins, range=axis_range)
     if logbins:
         data_matrix = np.log10(data_matrix)
     if replace_not_finite:
@@ -26,7 +30,7 @@ def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, 
 
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
     ax = plt.imshow(data_matrix.T if origin is 'lower' else data_matrix, extent=extent, origin=origin, aspect=aspect,
-                    interpolation=interpolation, cmap=cmap)
+                    interpolation=interpolation, cmap=cmap, **kwargs)
 
     tick_labels_log = lambda x: r'$\mathdefault{10^{' + str(x) + '}}$'
     if logx:
