@@ -40,7 +40,7 @@ def print_f(*args, **kwargs):
     printing.print_f(*args, **kwargs)
 
 
-def load_edge_list(filename, directed=False, id_dtype='int', sep='\t', comment='#'):
+def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', comment='#'):
     store_fname = filename + '.gt'
     if os.path.isfile(store_fname):
         try:
@@ -69,10 +69,11 @@ def load_edge_list(filename, directed=False, id_dtype='int', sep='\t', comment='
                 dest = map(lambda x: int(nodeid_to_v[x]), nodes[1:])
                 edge_list.extend([(src, d) for d in dest])
         g.add_edge_list(edge_list)
-        node_id_pmap = g.new_vertex_property(id_dtype)
-        for id, v in nodeid_to_v.iteritems():
-            node_id_pmap[v] = id
-        g.vp['NodeId'] = node_id_pmap
+        if vertex_id_dtype is not None:
+            node_id_pmap = g.new_vertex_property(vertex_id_dtype)
+            for v_id, v in nodeid_to_v.iteritems():
+                node_id_pmap[v] = v_id
+            g.vp['NodeId'] = node_id_pmap
         g.gp['filename'] = g.new_graph_property('string')
         g.gp['filename'] = filename
         g.gp['mtime'] = g.new_graph_property('object', os.path.getmtime(filename))
