@@ -37,10 +37,16 @@ def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, 
     if logx:
         ticks, _ = plt.xticks()
         ticks = range(int(ticks[0]), int(ticks[-1]) + 1)
+        if len(ticks) > 6:
+            step = int(len(ticks)/6)
+            ticks = ticks[0::step]
         plt.xticks(ticks, map(tick_labels_log, map(int, ticks)))
     if logy:
         ticks, _ = plt.yticks()
         ticks = range(int(ticks[0]), int(ticks[-1]) + 1)
+        if len(ticks) > 6:
+            step = int(len(ticks)/6)
+            ticks = ticks[0::step]
         plt.yticks(ticks, map(tick_labels_log, map(int, ticks)))
 
     plt.xlim([xedges[0], xedges[-1]])

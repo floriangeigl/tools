@@ -49,7 +49,7 @@ def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', co
             print 'failed loading. recreate graph'
             os.remove(store_fname)
             return load_edge_list(filename)
-        if 'mtime' in g.gp.keys() and g.gp['mtime'] != os.path.getmtime(filename):
+        if 'mtime' in g.gp.keys() and os.path.isfile(filename) and g.gp['mtime'] != os.path.getmtime(filename):
             print 'modified edge-list. recreate graph'
             os.remove(filename + '.gt')
             return load_edge_list(filename)
