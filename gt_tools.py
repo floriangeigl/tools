@@ -63,16 +63,16 @@ def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', co
         edge_list = []
         v_type = int
         with open(filename, 'r') as f:
-            for line in filter(lambda x: not x.startswith(comment), f):
+            for line in filter(lambda x: not x.startswith(comment), map(lambda x: x.strip(), f)):
                 try:
-                    nodes = map(v_type, line.strip().split(sep))
+                    nodes = map(v_type, line.split(sep))
                 except ValueError:
                     v_type = float
                     try:
-                        nodes = map(v_type, line.strip().split(sep))
+                        nodes = map(v_type, line.split(sep))
                     except ValueError:
                         v_type = str
-                        nodes = map(v_type, line.strip().split(sep))
+                        nodes = map(v_type, line.split(sep))
                 try:
                     src = int(nodeid_to_v[nodes[0]])
                 except IndexError:
