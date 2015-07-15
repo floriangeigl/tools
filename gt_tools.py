@@ -85,8 +85,7 @@ def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', co
             for v_id, v in nodeid_to_v.iteritems():
                 node_id_pmap[v] = v_id
             g.vp['NodeId'] = node_id_pmap
-        g.gp['filename'] = g.new_graph_property('string')
-        g.gp['filename'] = filename
+        g.gp['filename'] = g.new_graph_property('string', filename)
         g.gp['mtime'] = g.new_graph_property('object', os.path.getmtime(filename))
         g.save(filename + '.gt', fmt='gt')
     return g
