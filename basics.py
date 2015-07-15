@@ -17,3 +17,12 @@ def delete_folder(filename, force=True):
 def delete_file(filename):
     if os.path.isfile(filename):
         os.remove(filename)
+
+
+def find_files(base_dir, file_ending):
+    res = list()
+    for root, dirs, files in os.walk(base_dir):
+        if not root.endswith('/'):
+            root += '/'
+        res.extend([root + i for i in filter(lambda x: x.endswith(file_ending), files)])
+    return sorted(res)

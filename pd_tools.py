@@ -16,6 +16,41 @@ def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
     pd.set_option('display.max_rows', max_rows)
 
 
+def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6):
+    result_str = ''
+    if cols is not None:
+        df = df[cols].copy()
+    else:
+        df = df.copy()
+    width = len(df.columns)
+    col_fmt = '{l|' + '|'.join('c' * width) + '}'
+    result_str += '\\begin{tabular*}{\\linewidth}' + col_fmt + '\n\\toprule\n'
+    header = ' & ' + ' & '.join(df.columns) + '\\\\\\midrule\n'
+    for col in df.columns:
+        col_min, col_max = df[col].min(), df[col].max()
+        # print len(df[col])
+        color_dict = {key: color + '!' + str(val)[:3] for key, val, color in
+                      zip(sorted(np.array(df[col])), [40, 30, 20, 20, 30, 40],
+                          ['blue', 'blue', 'blue', 'red', 'red', 'red'])}
+        # print color_dict
+        df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
+            "$\\bm{" + str(x == col_min) + str(x)[:digits] + "}$" % x if (x == col_min or x == col_max) else '$' + str(
+                x)[:digits] + '$'))
+        if mark_min:
+            df[col] = df[col].apply(lambda x: x.replace('False', '\\wedge'))
+        if mark_max:
+            df[col] = df[col].apply(lambda x: x.replace('True', '\\vee'))
+    #result_str += str(df)
+    result_str += header
+    for idx, i in df.iterrows():
+        row_name = idx
+        if '_' in row_name:
+            row_name = ' '.join([x[:3] + '.' for x in idx.split('_')])
+        result_str += row_name + ' & ' + ' & '.join(i) + ' \\\\\n'
+    result_str += '\\bottomrule\n\\end{tabular*}'
+    return result_str
+
+
 def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label="", y_label="", max_orig_lines=1000, alpha=0.1, verbose=True, file_ext='.png',lw=2):
     if verbose:
         printing.print_f('plot dataframe', class_name='pd_tools')
