@@ -25,7 +25,7 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6):
     width = len(df.columns)
     col_fmt = '{l|' + '|'.join('c' * width) + '}'
     result_str += '\\begin{tabular*}{\\linewidth}' + col_fmt + '\n\\toprule\n'
-    header = ' & ' + ' & '.join(df.columns) + '\\\\\\midrule\n'
+    header = ' & ' + ' & '.join(df.columns) + '\\\\\n\\midrule\n'
     for col in df.columns:
         col_min, col_max = df[col].min(), df[col].max()
         # print len(df[col])
