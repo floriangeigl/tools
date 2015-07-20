@@ -81,11 +81,13 @@ def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', co
                 edge_list.extend([(src, d) for d in dest])
         g.add_edge_list(edge_list)
         if vertex_id_dtype is not None:
+            if vertex_id_dtype.lower() == 'string' or vertex_id_dtype.lower() == 'str':
+                vertex_id_dtype = 'object'
             node_id_pmap = g.new_vertex_property(vertex_id_dtype)
             for v_id, v in nodeid_to_v.iteritems():
                 node_id_pmap[v] = v_id
             g.vp['NodeId'] = node_id_pmap
-        g.gp['filename'] = g.new_graph_property('string', filename)
+        g.gp['filename'] = g.new_graph_property('object', filename)
         g.gp['mtime'] = g.new_graph_property('object', os.path.getmtime(filename))
         g.save(filename + '.gt', fmt='gt')
     return g
