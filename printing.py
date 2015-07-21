@@ -44,7 +44,7 @@ def print_matrix(matrix):
 
 
 def get_memory_consumption_in_mb():
-    return psutil.Process(os.getpid()).get_memory_info()[0] / float(2 ** 20)
+    return psutil.Process(os.getpid()).memory_info()[0] / float(2 ** 20)
 
 class bcolors:
     prefix = '\33'
