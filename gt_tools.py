@@ -69,9 +69,55 @@ def add_vertex_property(g, fn, p_name='weight', vertex_id_to_vertex=None, vertex
 
 
 def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=None, vertex_id_name='NodeId',
-                   vertex_id_dtype='int', sep='\t', comment='#', multiple_edges_per_line=False):
+                   vertex_id_dtype='int', sep=None, comment='#', multiple_edges_per_line=False, store=True,
+                   try_load_gt=True):
+    """
+    Loads an edge-list into a Graph (graph-tool) object and returns the Graph object.
+
+    Attributes
+    ----------
+    filename : str
+        the filename of the edge-list
+    directed : bool
+        treat the edge-list directed (True) or not (False)
+    vertex_weights : dict
+        dict where keys are the name of the resulting property-map and values are dicts containing properties of the
+        weight like data-type etc. (cf. add_vertex_property)
+        important: dict containing the properties must contain 'filename' : "filename_of_mapping"
+    edge_weights : dict
+        dict where keys are the name of the resulting property_map and values are tuples containing column id where
+        the weight is in the edge-list and the data-type.
+        Example:
+            weight_name : (0, 'int')
+            creates an integer property-map containing the values found in the first column AFTER src, tar.
+    vertex_id_name : str
+        Name of property map where the original vertex-name/-id... should be stored
+    vertex_id_dtype : str
+        Data-type of the original vertex-name/-id
+    sep : str or None
+        separator which should be used to split the lines of the edge-list file
+    comment : str
+        lines starting with this string are treated as comments (ignored)
+    multiple_edges_per_line : bool
+        Do the lines contain multiple-edges. (e.g., src tar1 tar2 tar3)
+        If this is true, edge_weights are not supported.
+    store : bool
+        Should the graph be stored in .gt format?
+    try_load_gt : bool
+        Should the function try to load a previously stored .gt file? ("filename.gt")
+        Note if there where modifications in the original edge-list, the function will reload the edge-list.
+
+    Notes
+    -----
+    -
+
+
+    Examples
+    --------
+    -
+     """
     store_fname = filename + '.gt'
-    if os.path.isfile(store_fname):
+    if os.path.isfile(store_fname) and try_load_gt:
         try:
             g = load_graph(store_fname)
         except:
@@ -160,7 +206,8 @@ def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=N
                 props.pop('filename', None)
                 kwargs.update(props)
                 add_vertex_property(g, fn, p_name=name, **kwargs)
-        g.save(filename + '.gt', fmt='gt')
+        if store:
+            g.save(filename + '.gt', fmt='gt')
     return g
 
 
