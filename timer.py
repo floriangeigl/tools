@@ -3,6 +3,7 @@ import time
 
 from printing import *
 
+
 class Timer:
     timer_name = ""
     timer_start = 0
