@@ -6,6 +6,12 @@ if _platform == "linux" or _platform == "linux2":
     matplotlib.use('Agg')
 import matplotlib.pylab as plt
 import numpy as np
+import os
+
+
+def crop_pdf(fn, out_filename=None):
+    out_filename = fn if out_filename is None else out_filename
+    os.system('pdfcrop ' + fn + ' ' + out_filename)
 
 
 def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, cmap='jet', interpolation='none',
