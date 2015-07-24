@@ -40,7 +40,36 @@ def print_f(*args, **kwargs):
     printing.print_f(*args, **kwargs)
 
 
-def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', comment='#'):
+def add_vertex_property(g, fn, p_name='weight', vertex_id_to_vertex=None, vertex_id_dtype='int', property_dtype='int',
+                        sep=None, comment='#', col=1):
+    pmap = g.new_vertex_property(property_dtype)
+    if property_dtype is 'int':
+        property_type_mapper = int
+    elif property_dtype is 'float':
+        property_type_mapper = float
+    else:
+        property_type_mapper = str
+
+    if vertex_id_dtype is 'int' or vertex_id_to_vertex is None:
+        vertex_id_mapper = int
+    elif vertex_id_dtype is 'float':
+        vertex_id_mapper = float
+    else:
+        vertex_id_mapper = str
+    get_vertex = g.vertex if vertex_id_to_vertex is None else (lambda x: vertex_id_to_vertex[x])
+    with open(fn, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith(comment):
+                line = line.split(sep)
+                v = get_vertex(vertex_id_mapper(line[0]))
+                p = property_type_mapper(line[col])
+                pmap[v] = p
+    g.vp[p_name] = pmap
+
+
+def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=None, vertex_id_name='NodeId',
+                   vertex_id_dtype='int', sep='\t', comment='#', multiple_edges_per_line=False):
     store_fname = filename + '.gt'
     if os.path.isfile(store_fname):
         try:
@@ -62,31 +91,75 @@ def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', co
         nodeid_to_v = defaultdict(g.add_vertex)
         edge_list = []
         v_type = int
+
+        edge_weights_dtypes = dict()
+        edge_weights_pmaps = dict()
+        edge_weights_names = dict()
+        if edge_weights is not None:
+            for name, (col, dtype) in edge_weights.iteritems():
+                edge_weights_names[col] = name
+                edge_weights_pmaps[col] = g.new_edge_property(dtype)
+                if dtype == 'int':
+                    edge_weights_dtypes[col] = int
+                elif dtype == 'float':
+                    edge_weights_dtypes[col] = float
+                else:
+                    edge_weights_dtypes[col] = float
+        src_target_extractor = (
+            lambda x: x[:2]) if edge_weights is not None or not multiple_edges_per_line else (
+            lambda x: x)
+        weights_extractor = (lambda x: None) if edge_weights is None else (
+            lambda x: tuple([edge_weights_dtypes[idx](i) for
+                             idx, i in enumerate(x[2:])]))
+        edge_weights_list = list()
         with open(filename, 'r') as f:
             for line in filter(lambda x: not x.startswith(comment), map(lambda x: x.strip(), f)):
+                line = line.split(sep)
+                nodes = src_target_extractor(line)
                 try:
-                    nodes = map(v_type, line.split(sep))
+                    nodes = map(v_type, nodes)
                 except ValueError:
                     v_type = float
                     try:
-                        nodes = map(v_type, line.split(sep))
+                        nodes = map(v_type, nodes)
                     except ValueError:
                         v_type = str
-                        nodes = map(v_type, line.split(sep))
+                        nodes = map(v_type, nodes)
                 try:
                     src = int(nodeid_to_v[nodes[0]])
                 except IndexError:
                     continue
                 dest = map(lambda x: int(nodeid_to_v[x]), nodes[1:])
-                edge_list.extend([(src, d) for d in dest])
+                edges = [(src, d) for d in dest]
+                edge_weights_list.append(weights_extractor(line))
+                edge_list.extend(edges)
         g.add_edge_list(edge_list)
+        if edge_weights is not None:
+            edges = list(map(lambda x: g.edge(*x), edge_list))
+            for col_idx, col_weights in enumerate(zip(*edge_weights_list)):
+                current_pmap = edge_weights_pmaps[col_idx]
+                for e, w in zip(edges, col_weights):
+                    current_pmap[e] = w
+                g.ep[edge_weights_names[col_idx]] = current_pmap
         if vertex_id_dtype is not None:
             node_id_pmap = g.new_vertex_property(vertex_id_dtype)
             for v_id, v in nodeid_to_v.iteritems():
                 node_id_pmap[v] = v_id
-            g.vp['NodeId'] = node_id_pmap
+            g.vp[vertex_id_name] = node_id_pmap
         g.gp['filename'] = g.new_graph_property('string', filename)
         g.gp['mtime'] = g.new_graph_property('object', os.path.getmtime(filename))
+
+        if vertex_weights is not None:
+            for name, props in vertex_weights.iteritems():
+                kwargs = dict()
+                kwargs['vertex_id_to_vertex'] = nodeid_to_v
+                kwargs['vertex_id_dtype'] = vertex_id_dtype
+                kwargs['sep'] = sep
+                kwargs['comment'] = comment
+                fn = props['filename']
+                props.pop('filename', None)
+                kwargs.update(props)
+                add_vertex_property(g, fn, p_name=name, **kwargs)
         g.save(filename + '.gt', fmt='gt')
     return g
 
