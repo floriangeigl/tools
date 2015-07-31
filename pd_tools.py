@@ -104,3 +104,14 @@ def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label=""
     plt.ylabel(y_label)
     plt.savefig(filename if filename.endswith(file_ext) else filename + file_ext, bbox_inches='tight')
     return df
+
+
+def df_decay(_df, _function):
+    for series in _df:
+        for index in _df[series].keys():
+            if np.isnan(_df[series][index]):
+                if index == 1:
+                    _df[series][index] = 0
+                else:
+                    _df[series][index] = _function(_df[series][index - 1])
+    return _df
