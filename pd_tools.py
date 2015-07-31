@@ -8,12 +8,22 @@ import numpy as np
 import pandas as pd
 import printing
 import basics
+import operator
 
 
 def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
     pd.set_option('display.max_colwidth', max_colwidth)
     pd.set_option('display.width', width)
     pd.set_option('display.max_rows', max_rows)
+
+
+def create_multi_index_df(data_frame_dict):
+    # dataframe dict must be a dictionary where the key is the first level index and the value is a dataframe of which the columns will be the second level indices
+    data_frame_dict = sorted(data_frame_dict.iteritems(), key=operator.itemgetter(0))
+    columns = pd.MultiIndex.from_tuples([(i, n) for i, j in data_frame_dict for n in j])
+    first_level_idx, data_frames = zip(*data_frame_dict)
+    data = np.array([np.array(i[j]) for i in data_frames for j in i.columns]).T
+    return pd.DataFrame(columns=columns, data=data)
 
 
 def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6):
