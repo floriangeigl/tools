@@ -84,6 +84,13 @@ def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=N
         dict where keys are the name of the resulting property-map and values are dicts containing properties of the
         weight like data-type etc. (cf. add_vertex_property)
         important: dict containing the properties must contain 'filename' : "filename_of_mapping"
+        Example:
+            vertex_weights = dict()
+            one_v_weight = dict()
+            one_v_weight['filename'] = 'foo.file'
+            one_v_weight['property_dtype'] = 'int'  # you can use anything available in add_vertex_property()
+            vertex_weights['MyVertexWeight'] = one_v_weight
+            
     edge_weights : dict
         dict where keys are the name of the resulting property_map and values are tuples containing column id where
         the weight is in the edge-list and the data-type.
