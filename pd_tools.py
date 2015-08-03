@@ -107,15 +107,15 @@ def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label=""
 
 
 def df_decay(_df, _function):
-    def helper_func(x):
+    def _element_helper_func(x):
         if np.isnan(x):
-            helper_func.last_val = _function(helper_func.last_val)
+            _element_helper_func.last_val = _function(_element_helper_func.last_val)
         else:
-            helper_func.last_val = x
-        return helper_func.last_val
+            _element_helper_func.last_val = x
+        return _element_helper_func.last_val
 
     def _series_helper(s):
-        helper_func.last_val = 0
-        return map(helper_func, s)
+        _element_helper_func.last_val = 0
+        return s.apply(func=_element_helper_func)
 
     return _df.apply(func=_series_helper, axis=0)
