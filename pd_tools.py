@@ -116,9 +116,5 @@ def df_decay(_df, _function):
         return helper_func.last_val
 
     helper_func.last_val = 0
-<<<<<<< HEAD
     return pd.rolling_apply(_df, func=helper_func,window=1)
     #_df.apply(helper_func, axis=0)
-=======
-    _df.apply(helper_func, axis=0)
->>>>>>> origin/master
