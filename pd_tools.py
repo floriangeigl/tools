@@ -9,6 +9,7 @@ import pandas as pd
 import printing
 import basics
 import operator
+import numba
 
 
 def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
@@ -115,5 +116,9 @@ def df_decay(_df, _function):
         return helper_func.last_val
 
     helper_func.last_val = 0
+<<<<<<< HEAD
     return pd.rolling_apply(_df, func=helper_func,window=1)
     #_df.apply(helper_func, axis=0)
+=======
+    _df.apply(helper_func, axis=0)
+>>>>>>> origin/master
