@@ -9,6 +9,7 @@ import pandas as pd
 import printing
 import basics
 import operator
+import numba
 
 
 def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
@@ -107,11 +108,12 @@ def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label=""
 
 
 def df_decay(_df, _function):
-    for series in _df:
-        for index in _df[series].keys():
-            if np.isnan(_df[series][index]):
-                if index == 1:
-                    _df[series][index] = 0
-                else:
-                    _df[series][index] = _function(_df[series][index - 1])
-    return _df
+    def helper_func(x):
+        if np.isnan(x):
+            helper_func.last_val = _function(helper_func.last_val)
+        else:
+            helper_func.last_val = x
+        return helper_func.last_val
+
+    helper_func.last_val = 0
+    _df.apply(helper_func, axis=0)
