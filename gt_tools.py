@@ -90,7 +90,7 @@ def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=N
             one_v_weight['filename'] = 'foo.file'
             one_v_weight['property_dtype'] = 'int'  # you can use anything available in add_vertex_property()
             vertex_weights['MyVertexWeight'] = one_v_weight
-            
+
     edge_weights : dict
         dict where keys are the name of the resulting property_map and values are tuples containing column id where
         the weight is in the edge-list and the data-type.
@@ -358,7 +358,7 @@ class SBMGenerator():
                 while init_len == len(edges):
                     dest_b = SBMGenerator.get_one_random_block(cum_sum, blocks, src_block)
                     dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
-                    link = (v, dest_v) if directed else tuple(sorted([v, dest_v]))
+                    link = (int(v), dest_v) if directed else tuple(sorted([int(v), dest_v]))
                     is_loop = v == dest_v
                     if not is_loop:
                         edges.add(link)

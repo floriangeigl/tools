@@ -212,3 +212,10 @@ class Test_load_edge_list(unittest.TestCase):
                 src, tar = reverse_map[src], reverse_map[tar]
                 self.assertIsNotNone(g.edge(src, tar))
         os.removedirs(tmp_dir)
+
+class Test_SBMGenerator(unittest.TestCase):
+    def setUp(self):
+        self.gen = gt_tools.SBMGenerator()
+
+    def test_simple_gen(self):
+        g = self.gen.gen_stock_blockmodel()
