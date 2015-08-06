@@ -123,7 +123,7 @@ def df_decay(_df, _function):
 
 def df_sample(_df, _frequency):
     assert _frequency > 1
-    num_rows = _df[0].count()
+    num_rows = len(_df.index)
     frequency_range = np.arange(0, num_rows, _frequency)
     frequency_range[0] = 1
     if num_rows not in frequency_range:
