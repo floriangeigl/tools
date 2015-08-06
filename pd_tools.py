@@ -119,3 +119,13 @@ def df_decay(_df, _function):
         return s.apply(func=_element_helper_func)
 
     return _df.apply(func=_series_helper, axis=0)
+
+
+def df_sample(_df, _frequency):
+    assert _frequency > 1
+    num_rows = _df[0].count()
+    frequency_range = np.arange(0, num_rows, _frequency)
+    frequency_range[0] = 1
+    if num_rows not in frequency_range:
+        frequency_range = np.append(frequency_range, [num_rows])
+    return _df.loc[frequency_range]
