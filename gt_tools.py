@@ -40,9 +40,91 @@ def print_f(*args, **kwargs):
     printing.print_f(*args, **kwargs)
 
 
-def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', comment='#'):
+def add_vertex_property(g, fn, p_name='weight', vertex_id_to_vertex=None, vertex_id_dtype='int', property_dtype='int',
+                        sep=None, comment='#', col=1):
+    pmap = g.new_vertex_property(property_dtype)
+    if property_dtype is 'int':
+        property_type_mapper = int
+    elif property_dtype is 'float':
+        property_type_mapper = float
+    else:
+        property_type_mapper = str
+
+    if vertex_id_dtype is 'int' or vertex_id_to_vertex is None:
+        vertex_id_mapper = int
+    elif vertex_id_dtype is 'float':
+        vertex_id_mapper = float
+    else:
+        vertex_id_mapper = str
+    get_vertex = g.vertex if vertex_id_to_vertex is None else (lambda x: vertex_id_to_vertex[x])
+    with open(fn, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith(comment):
+                line = line.split(sep)
+                v = get_vertex(vertex_id_mapper(line[0]))
+                p = property_type_mapper(line[col])
+                pmap[v] = p
+    g.vp[p_name] = pmap
+
+
+def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=None, vertex_id_name='NodeId',
+                   vertex_id_dtype='int', sep=None, comment='#', multiple_edges_per_line=False, store=True,
+                   try_load_gt=True):
+    """
+    Loads an edge-list into a Graph (graph-tool) object and returns the Graph object.
+
+    Attributes
+    ----------
+    filename : str
+        the filename of the edge-list
+    directed : bool
+        treat the edge-list directed (True) or not (False)
+    vertex_weights : dict
+        dict where keys are the name of the resulting property-map and values are dicts containing properties of the
+        weight like data-type etc. (cf. add_vertex_property)
+        important: dict containing the properties must contain 'filename' : "filename_of_mapping"
+        Example:
+            vertex_weights = dict()
+            one_v_weight = dict()
+            one_v_weight['filename'] = 'foo.file'
+            one_v_weight['property_dtype'] = 'int'  # you can use anything available in add_vertex_property()
+            vertex_weights['MyVertexWeight'] = one_v_weight
+
+    edge_weights : dict
+        dict where keys are the name of the resulting property_map and values are tuples containing column id where
+        the weight is in the edge-list and the data-type.
+        Example:
+            weight_name : (0, 'int')
+            creates an integer property-map containing the values found in the first column AFTER src, tar.
+    vertex_id_name : str
+        Name of property map where the original vertex-name/-id... should be stored
+    vertex_id_dtype : str
+        Data-type of the original vertex-name/-id
+    sep : str or None
+        separator which should be used to split the lines of the edge-list file
+    comment : str
+        lines starting with this string are treated as comments (ignored)
+    multiple_edges_per_line : bool
+        Do the lines contain multiple-edges. (e.g., src tar1 tar2 tar3)
+        If this is true, edge_weights are not supported.
+    store : bool
+        Should the graph be stored in .gt format?
+    try_load_gt : bool
+        Should the function try to load a previously stored .gt file? ("filename.gt")
+        Note if there where modifications in the original edge-list, the function will reload the edge-list.
+
+    Notes
+    -----
+    -
+
+
+    Examples
+    --------
+    -
+     """
     store_fname = filename + '.gt'
-    if os.path.isfile(store_fname):
+    if os.path.isfile(store_fname) and try_load_gt:
         try:
             g = load_graph(store_fname)
         except:
@@ -62,32 +144,77 @@ def load_edge_list(filename, directed=False, vertex_id_dtype='int', sep='\t', co
         nodeid_to_v = defaultdict(g.add_vertex)
         edge_list = []
         v_type = int
+
+        edge_weights_dtypes = dict()
+        edge_weights_pmaps = dict()
+        edge_weights_names = dict()
+        if edge_weights is not None:
+            for name, (col, dtype) in edge_weights.iteritems():
+                edge_weights_names[col] = name
+                edge_weights_pmaps[col] = g.new_edge_property(dtype)
+                if dtype == 'int':
+                    edge_weights_dtypes[col] = int
+                elif dtype == 'float':
+                    edge_weights_dtypes[col] = float
+                else:
+                    edge_weights_dtypes[col] = float
+        src_target_extractor = (
+            lambda x: x[:2]) if edge_weights is not None or not multiple_edges_per_line else (
+            lambda x: x)
+        weights_extractor = (lambda x: None) if edge_weights is None else (
+            lambda x: tuple([edge_weights_dtypes[idx](i) for
+                             idx, i in enumerate(x[2:])]))
+        edge_weights_list = list()
         with open(filename, 'r') as f:
             for line in filter(lambda x: not x.startswith(comment), map(lambda x: x.strip(), f)):
+                line = line.split(sep)
+                nodes = src_target_extractor(line)
                 try:
-                    nodes = map(v_type, line.split(sep))
+                    nodes = map(v_type, nodes)
                 except ValueError:
                     v_type = float
                     try:
-                        nodes = map(v_type, line.split(sep))
+                        nodes = map(v_type, nodes)
                     except ValueError:
                         v_type = str
-                        nodes = map(v_type, line.split(sep))
+                        nodes = map(v_type, nodes)
                 try:
                     src = int(nodeid_to_v[nodes[0]])
                 except IndexError:
                     continue
                 dest = map(lambda x: int(nodeid_to_v[x]), nodes[1:])
-                edge_list.extend([(src, d) for d in dest])
+                edges = [(src, d) for d in dest]
+                edge_weights_list.append(weights_extractor(line))
+                edge_list.extend(edges)
         g.add_edge_list(edge_list)
+        if edge_weights is not None:
+            edges = list(map(lambda x: g.edge(*x), edge_list))
+            for col_idx, col_weights in enumerate(zip(*edge_weights_list)):
+                current_pmap = edge_weights_pmaps[col_idx]
+                for e, w in zip(edges, col_weights):
+                    current_pmap[e] = w
+                g.ep[edge_weights_names[col_idx]] = current_pmap
         if vertex_id_dtype is not None:
             node_id_pmap = g.new_vertex_property(vertex_id_dtype)
             for v_id, v in nodeid_to_v.iteritems():
                 node_id_pmap[v] = v_id
-            g.vp['NodeId'] = node_id_pmap
+            g.vp[vertex_id_name] = node_id_pmap
         g.gp['filename'] = g.new_graph_property('string', filename)
         g.gp['mtime'] = g.new_graph_property('object', os.path.getmtime(filename))
-        g.save(filename + '.gt', fmt='gt')
+
+        if vertex_weights is not None:
+            for name, props in vertex_weights.iteritems():
+                kwargs = dict()
+                kwargs['vertex_id_to_vertex'] = nodeid_to_v
+                kwargs['vertex_id_dtype'] = vertex_id_dtype
+                kwargs['sep'] = sep
+                kwargs['comment'] = comment
+                fn = props['filename']
+                props.pop('filename', None)
+                kwargs.update(props)
+                add_vertex_property(g, fn, p_name=name, **kwargs)
+        if store:
+            g.save(filename + '.gt', fmt='gt')
     return g
 
 
@@ -231,7 +358,7 @@ class SBMGenerator():
                 while init_len == len(edges):
                     dest_b = SBMGenerator.get_one_random_block(cum_sum, blocks, src_block)
                     dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
-                    link = (v, dest_v) if directed else tuple(sorted([v, dest_v]))
+                    link = (int(v), dest_v) if directed else tuple(sorted([int(v), dest_v]))
                     is_loop = v == dest_v
                     if not is_loop:
                         edges.add(link)

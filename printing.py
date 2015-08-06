@@ -24,6 +24,12 @@ def print_f(*args, **kwargs):
         print(bcolors.GREEN + '{' + class_name + '}' + bcolors.ENDC, end='')
     except KeyError:
         pass
+    try:
+        name = str(kwargs['field_name'])
+        color = str(kwargs['color'])
+        print(color_string('{' + name + '}', color), end='')
+    except KeyError:
+        pass
 
     print(' '.join(map(str, args)))
     sys.stdout.flush()
