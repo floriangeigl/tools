@@ -9,15 +9,14 @@ import numpy as np
 import os
 
 
-def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None):
+def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': font_size})
     f2 = plt.figure(figsize=figsize)
     handles, labels = ax.get_legend_handles_labels()
     num_labels = len(labels)
-    f2.legend(handles, labels, loc='center', ncol=num_labels if ncols is None else ncols,
-              nrwos=1 if nrows is None else nrows)
+    f2.legend(handles, labels, loc='center', ncol=num_labels if ncols is None else ncols)
     plt.savefig(filename, bbox_tight=True)
     if filename.endswith('.pdf'):
         crop_pdf(filename)
@@ -30,7 +29,6 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
 def crop_pdf(fn, out_filename=None, bgtask=True):
     out_filename = fn if out_filename is None else out_filename
     return os.system('pdfcrop ' + fn + ' ' + out_filename + ' &> /dev/null' + (' &' if bgtask else ''))
-
 
 
 def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, cmap='jet', interpolation='none',
