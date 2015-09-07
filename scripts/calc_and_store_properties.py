@@ -11,8 +11,6 @@ print 'calc pagerank'
 g.vp['pagerank'] = pagerank(g)
 print 'calc betweenness'
 g.vp['betweenness'], g.ep['betweenness'] = betweenness(g)
-print 'calc betweenness'
-g.vp['betweenness'], g.ep['betweenness'] = betweenness(g)
 print 'calc eigenvector'
 eigenval, g.vp['eigenvector'] = eigenvector(g)
 g.gp['eigenval'] = g.new_graph_property('float', eigenval)
