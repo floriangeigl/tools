@@ -241,6 +241,8 @@ class Test_SBMGenerator(unittest.TestCase):
         print 'plot degree dist'
         plt.plot(deg_hist[1], deg_hist[0])
         plt.xscale('log')
+        plt.xlabel('degree')
+        plt.ylabel('#nodes')
         plt.yscale('log')
         plt.savefig('deg_dist_test.png')
         plt.close('all')
