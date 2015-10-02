@@ -250,7 +250,7 @@ class Test_SBMGenerator(unittest.TestCase):
         graph_draw(g, output='graph.png', output_size=(800, 800),
                    vertex_size=prop_to_size(g.degree_property_map('total'), mi=2, ma=30), vertex_color=[0., 0., 0., 1.],
                    vertex_fill_color=g.vp['com'],
-                   bg_color=[.1, .1, .1, 0.])
+                   bg_color=[1., 1., 1., 1.])
         plt.close('all')
         print 'init:', self_con / (self_con + other_con), other_con / (self_con + other_con)
         print 'real:', gt_tools.get_graph_com_connectivity(g, 'com')
