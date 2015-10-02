@@ -319,8 +319,9 @@ def get_graph_com_connectivity(g, com_map='com'):
 
 class SBMGenerator():
     @staticmethod
-    def gen_stock_blockmodel(num_nodes=100, blocks=3, self_con=1, other_con=0.2, directed=False, degree_seq='powerlaw',
-                             powerlaw_exp=-1., num_links=None, loops=False, min_degree=1, max_degree=30):
+    def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,
+                             degree_seq='powerlaw', powerlaw_exp=-.75, num_links=None, loops=False, min_degree=1,
+                             max_degree=200):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         nodes_range = np.array(range(num_nodes))
