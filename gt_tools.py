@@ -218,6 +218,13 @@ def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=N
     return g
 
 
+def powerlaw_rand(x_min, x_max, alpha, size=1):
+    assert x_max > x_min > 0
+    r = np.random.random(size=size)
+    ag, bg = x_min ** alpha, x_max ** alpha
+    return (ag + (bg - ag) * r) ** (1. / alpha)
+
+
 def net_from_adj(mat, directed=True, parallel_edges=True):
     g = Graph(directed=directed)
     assert mat.shape[0] == mat.shape[1]
@@ -296,10 +303,24 @@ def load_property(network, filename, type='int', resolve='NodeId', sep=None, lin
     return pmap
 
 
+def get_graph_com_connectivity(g, com_map='com'):
+    com_map = g.vp[com_map]
+    intern_edges = 0
+    between_edges = 0
+    for e in g.edges():
+        if com_map[e.source()] == com_map[e.target()]:
+            intern_edges += 1
+        else:
+            between_edges += 1
+    num_edges = (intern_edges + between_edges)
+    intern_edges /= num_edges
+    between_edges /= num_edges
+    return intern_edges, between_edges
+
 class SBMGenerator():
     @staticmethod
     def gen_stock_blockmodel(num_nodes=100, blocks=3, self_con=1, other_con=0.2, directed=False, degree_seq='powerlaw',
-                             powerlaw_exp=2.1, num_links=300, loops=False):
+                             powerlaw_exp=-1., num_links=None, loops=False, min_degree=1, max_degree=30):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         nodes_range = np.array(range(num_nodes))
@@ -312,7 +333,7 @@ class SBMGenerator():
         block_to_vertices = dict()
         block_to_cumsum = dict()
         if degree_seq == 'powerlaw':
-            degree_seq = (1 - stats.powerlaw.rvs(powerlaw_exp, size=num_nodes))
+            degree_seq = powerlaw_rand(min_degree, max_degree, alpha=powerlaw_exp, size=num_nodes)
         elif degree_seq == 'random':
             degree_seq = np.random.random(size=num_nodes)
         elif degree_seq == 'exp':
@@ -320,6 +341,13 @@ class SBMGenerator():
         else:
             degree_seq = np.array([1.0] * num_nodes)
         degree_seq.sort()
+        degree_seq /= degree_seq.sum()
+        multiplier = min_degree/degree_seq.min()
+        degree_seq *= multiplier
+        # print degree_seq
+        if num_links is None:
+            num_links = int(degree_seq.sum() / 2)
+            print '#links not set. using:', num_links
         # print degree_seq
         block_deg_seq_sum = dict()
         vertices_array = np.array(map(int, g.vertices()))
@@ -366,8 +394,8 @@ class SBMGenerator():
                         edges.add(tuple(sorted(link)))
 
         for link_idx in range(num_links - len(edges)):
-            init_len = len(edges)
-            while init_len == len(edges):
+            while True:
+                #maybe switch to: get random node. identify block. get random dest-block.
                 src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, blocks)
                 src_v = block_to_vertices[src_b][SBMGenerator.get_random_node(block_to_cumsum[src_b])]
                 dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
@@ -375,8 +403,10 @@ class SBMGenerator():
                 is_loop = src_v == dest_v
                 if not is_loop:
                     edges.add(link)
+                    break
                 elif loops:
                     edges.add(tuple(sorted(link)))
+                    break
         g.add_edge_list(list(edges))
         return g
 
@@ -396,6 +426,7 @@ class SBMGenerator():
         idx = 0
         for idx, i in enumerate(cum_sum):
             if i >= rand_num:
+                # return row, col of cum_sum_matrix
                 return idx % num_blocks, int(idx / num_blocks)
         print 'warn: get rand block till end'
         return idx % num_blocks, int(idx / num_blocks)
@@ -427,6 +458,7 @@ class SBMGenerator():
             graph_draw(g, vertex_fill_color=g.vp['com'], output_size=(200, 200),
                        vertex_size=prop_to_size(deg_map, mi=2, ma=15, power=1.), output=filename + '_network.png',
                        bg_color=[1, 1, 1, 1])
+
 
 
 # Generator Class works with GraphTool generators, as they provide more functionality than NetworkX Generators

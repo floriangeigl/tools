@@ -1,3 +1,11 @@
+from __future__ import division
+from sys import platform as _platform
+import matplotlib
+import matplotlib.cm as colormap
+
+if _platform == "linux" or _platform == "linux2":
+    matplotlib.use('Agg')
+import matplotlib.pylab as plt
 import sys
 
 sys.path.append('./../')
@@ -10,6 +18,7 @@ import printing
 from graph_tool.all import *
 import numpy as np
 import os
+import powerlaw as fit_powerlaw
 
 
 class Test_net_from_adj(unittest.TestCase):
@@ -218,4 +227,28 @@ class Test_SBMGenerator(unittest.TestCase):
         self.gen = gt_tools.SBMGenerator()
 
     def test_simple_gen(self):
-        g = self.gen.gen_stock_blockmodel()
+        self_con = .8
+        other_con = 0.05
+        g = self.gen.gen_stock_blockmodel(min_degree=1, blocks=5, self_con=self_con, other_con=other_con,
+                                          powerlaw_exp=-.75,
+                                          max_degree=200, degree_seq='powerlaw', num_nodes=1000)
+        deg_hist = vertex_hist(g, 'total')
+        res = fit_powerlaw.Fit(g.degree_property_map('total').a)
+        print 'powerlaw alpha:', res.power_law.alpha
+        print 'powerlaw xmin:', res.power_law.xmin
+        if len(deg_hist[0]) != len(deg_hist[1]):
+            deg_hist[1] = deg_hist[1][:len(deg_hist[0])]
+        print 'plot degree dist'
+        plt.plot(deg_hist[1], deg_hist[0])
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.savefig('deg_dist_test.png')
+        plt.close('all')
+        print 'plot graph'
+        graph_draw(g, output='graph.png', output_size=(800, 800),
+                   vertex_size=prop_to_size(g.degree_property_map('total'), mi=2, ma=30), vertex_color=[0., 0., 0., 1.],
+                   vertex_fill_color=g.vp['com'],
+                   bg_color=[.1, .1, .1, 0.])
+        plt.close('all')
+        print 'init:', self_con / (self_con + other_con), other_con / (self_con + other_con)
+        print 'real:', gt_tools.get_graph_com_connectivity(g, 'com')
