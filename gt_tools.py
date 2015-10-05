@@ -218,13 +218,6 @@ def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=N
     return g
 
 
-def powerlaw_rand(x_min, x_max, alpha, size=1):
-    assert x_max > x_min > 0
-    r = np.random.random(size=size)
-    ag, bg = x_min ** alpha, x_max ** alpha
-    return (ag + (bg - ag) * r) ** (1. / alpha)
-
-
 def net_from_adj(mat, directed=True, parallel_edges=True):
     g = Graph(directed=directed)
     assert mat.shape[0] == mat.shape[1]
@@ -252,6 +245,7 @@ def net_from_adj(mat, directed=True, parallel_edges=True):
         w.a = data
         g.ep['weights'] = w
     return g
+
 
 def load_property(network, filename, type='int', resolve='NodeId', sep=None, line_groups=False):
     assert isinstance(network, Graph)
@@ -320,8 +314,7 @@ def get_graph_com_connectivity(g, com_map='com'):
 class SBMGenerator():
     @staticmethod
     def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,
-                             degree_seq='powerlaw', powerlaw_exp=-.75, num_links=None, loops=False, min_degree=1,
-                             max_degree=200):
+                             degree_seq='powerlaw', powerlaw_exp=2.4, num_links=None, loops=False, min_degree=1):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         nodes_range = np.array(range(num_nodes))
@@ -334,7 +327,7 @@ class SBMGenerator():
         block_to_vertices = dict()
         block_to_cumsum = dict()
         if degree_seq == 'powerlaw':
-            degree_seq = powerlaw_rand(min_degree, max_degree, alpha=powerlaw_exp, size=num_nodes)
+            degree_seq = stats.zipf.rvs(powerlaw_exp, loc=min_degree, size=num_nodes).astype('float')
         elif degree_seq == 'random':
             degree_seq = np.random.random(size=num_nodes)
         elif degree_seq == 'exp':
@@ -347,7 +340,8 @@ class SBMGenerator():
         degree_seq *= multiplier
         # print degree_seq
         if num_links is None:
-            num_links = int(degree_seq.sum() / 2)
+            # print 'min degree:', degree_seq.min()
+            num_links = int(np.round((degree_seq.round().sum() / 2)))
             print '#links not set. using:', num_links
         # print degree_seq
         block_deg_seq_sum = dict()
@@ -449,7 +443,7 @@ class SBMGenerator():
         ser.plot(kind='hist', bins=int(deg_map.a.max()), lw=0)
         plt.xlabel('degree')
         plt.ylabel('num nodes')
-        res = fit_powerlaw.Fit(deg_map.a)
+        res = fit_powerlaw.Fit(deg_map.a, discrete=True)
         print 'powerlaw alpha:', res.power_law.alpha
         print 'powerlaw xmin:', res.power_law.xmin
         plt.title('powerlaw alpha:' + str(res.power_law.alpha) + ' || powerlaw xmin:' + str(res.power_law.xmin))

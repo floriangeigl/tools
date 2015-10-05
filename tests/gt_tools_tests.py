@@ -230,10 +230,9 @@ class Test_SBMGenerator(unittest.TestCase):
         self_con = .8
         other_con = 0.05
         g = self.gen.gen_stoch_blockmodel(min_degree=1, blocks=5, self_con=self_con, other_con=other_con,
-                                          powerlaw_exp=-.75,
-                                          max_degree=200, degree_seq='powerlaw', num_nodes=1000)
+                                          powerlaw_exp=2.1, degree_seq='powerlaw', num_nodes=1000)
         deg_hist = vertex_hist(g, 'total')
-        res = fit_powerlaw.Fit(g.degree_property_map('total').a)
+        res = fit_powerlaw.Fit(g.degree_property_map('total').a, discrete=True)
         print 'powerlaw alpha:', res.power_law.alpha
         print 'powerlaw xmin:', res.power_law.xmin
         if len(deg_hist[0]) != len(deg_hist[1]):
