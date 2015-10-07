@@ -24,10 +24,14 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, crop=
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': default_font_size})
 
+def save_n_crop(fn):
+    plt.savefig(fn)
+    if fn.endswith('.pdf'):
+        crop_pdf(fn)
 
 def crop_pdf(fn, out_filename=None, bgtask=True):
     out_filename = fn if out_filename is None else out_filename
-    return os.system('pdfcrop ' + fn + ' ' + out_filename + ' &> /dev/null' + (' &' if bgtask else ''))
+    return os.system('pdfcrop ' + fn + ' ' + out_filename + ' > /dev/null 2>&1' + (' &' if bgtask else ''))
 
 
 def plot_scatter_heatmap(x, y, logx=False, logy=False, logbins=False, bins=100, cmap='jet', interpolation='none',
