@@ -9,7 +9,7 @@ import numpy as np
 import os
 
 
-def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None):
+def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, crop=True):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': font_size})
@@ -19,7 +19,7 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None):
     f2.legend(handles, labels, loc='center', ncol=num_labels if ncols is None else ncols)
     plt.savefig(filename, bbox_tight=True)
     plt.close('all')
-    if filename.endswith('.pdf'):
+    if filename.endswith('.pdf') and crop:
         crop_pdf(filename)
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': default_font_size})
