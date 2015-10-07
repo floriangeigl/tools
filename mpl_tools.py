@@ -18,10 +18,9 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None):
     num_labels = len(labels)
     f2.legend(handles, labels, loc='center', ncol=num_labels if ncols is None else ncols)
     plt.savefig(filename, bbox_tight=True)
+    plt.close('all')
     if filename.endswith('.pdf'):
         crop_pdf(filename)
-    plt.show()
-    plt.close('all')
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': default_font_size})
 
