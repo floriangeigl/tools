@@ -19,6 +19,9 @@ from graph_tool.all import *
 import numpy as np
 import os
 import powerlaw as fit_powerlaw
+import datetime
+import time
+from timeit import Timer
 
 
 class Test_net_from_adj(unittest.TestCase):
@@ -253,3 +256,35 @@ class Test_SBMGenerator(unittest.TestCase):
         plt.close('all')
         print 'init:', self_con / (self_con + other_con), other_con / (self_con + other_con)
         print 'real:', gt_tools.get_graph_com_connectivity(g, 'com')
+
+'''
+class Test_fast_sd(unittest.TestCase):
+    def setUp(self):
+        self.gen = gt_tools.SBMGenerator()
+        self.g = self.gen.gen_stoch_blockmodel(min_degree=1, blocks=3, self_con=0.9, other_con=0.1,
+                                               powerlaw_exp=2.1, degree_seq='powerlaw', num_nodes=1000, directed=True)
+        lc = label_largest_component(self.g)
+        self.g.set_vertex_filter(lc)
+        self.g.purge_vertices()
+        self.g.clear_filters()
+
+    def test_simple_gen(self):
+        print 'cals shortest distances using fast sd'
+        repeat = 10
+        t1 = Timer(lambda: gt_tools.fast_sd(self.g))
+        print 'fast sd took:', t1.timeit(number=repeat)
+        print 'calc shortest distances using gt-build-in'
+        t2 = Timer(lambda: shortest_distance(self.g))
+        print 'gt-build-in sd took:', t2.timeit(number=repeat)
+        t3 = Timer(lambda: pagerank(self.g))
+        print 'pagerank took:', t3.timeit(number=repeat)
+        assert len(fast_sd_result) > 0
+        for src, dest_dict in sorted(fast_sd_result.iteritems(), key=lambda x: x[0]):
+            src_vec = gt_sd_result[src]
+            for dest, dist in sorted(dest_dict.iteritems(), key=lambda x: x[0]):
+                try:
+                    assert dist == src_vec[dest]
+                except AssertionError:
+                    print dist, src_vec[dest]
+                    raise
+'''

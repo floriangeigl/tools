@@ -25,14 +25,14 @@ import operator
 import math
 from scipy.sparse.linalg.eigen.arpack import eigsh as largest_eigsh
 import scipy.stats as stats
-from scipy.sparse import csr_matrix, issparse
+from scipy.sparse import csr_matrix, issparse, lil_matrix, dok_matrix
 import sys
 from scipy.stats import powerlaw, poisson
 from collections import defaultdict
 import traceback
 from basics import create_folder_structure
 import powerlaw as fit_powerlaw
-
+from numba import jit
 
 def print_f(*args, **kwargs):
     if 'class_name' not in kwargs:
@@ -800,3 +800,57 @@ def calc_vertex_properties(graph, max_iter_ev=1000, max_iter_hits=1000):
     print_f("Calculating Degree Property Map")
     graph.vertex_properties["degree"] = graph.degree_property_map("total")
     return graph
+
+'''
+def fast_sd(g, src_ids=None, dest_ids=None, pairs=None, max_dist=10, loops=False):
+    # print g
+    all_vertices_ids = list(map(int, g.vertices()))
+    if src_ids is None:
+        src_ids = all_vertices_ids
+    elif not hasattr(src_ids, '__iter__'):
+        src_ids = [int(src_ids)]
+    if dest_ids is None:
+        dest_ids = all_vertices_ids
+    elif not hasattr(dest_ids, '__iter__'):
+        dest_ids = [int(dest_ids)]
+    if pairs is not None:
+        if isinstance(pairs, list):
+            pairs = set(pairs)
+        elif isinstance(pairs, tuple):
+            pairs = {pairs}
+    elif g.is_directed():
+        pairs = {(src, dest) for src in src_ids for dest in dest_ids if src != dest}
+    else:
+        pairs = {(src, dest) for src in src_ids for dest in dest_ids if src < dest}
+
+    assert isinstance(pairs, set)
+
+    A = adjacency(g).astype(bool)
+    M = A.copy()
+    M_old = None
+    distances = defaultdict(lambda: defaultdict(int))
+    m_max = g.num_vertices() * (g.num_vertices() - 1)
+    reachable = 0
+    for current_distance in xrange(1, max_dist + 1):
+        m_non_zero = M.nnz
+
+        if m_non_zero == 0:
+            break
+        reachable += m_non_zero
+        print current_distance, reachable/m_max
+        #pairs_with_current_distance = pairs & set(zip(*m_non_zero))
+        #for src, dest in pairs_with_current_distance:
+        #    distances[dest][src] = current_distance
+        #pairs -= pairs_with_current_distance
+        if not pairs:
+            # print 'break at:', current_distance
+            break
+        M_old = M.copy()
+        M *= A
+        M -= M_old
+        M = M.astype(bool)
+    if len(pairs):
+        # print '#pairs without distance:', len(pairs)
+        pass
+    return distances
+'''
