@@ -22,7 +22,7 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
             if num_labels % nrows != 0:
                 ncols += 1
         else:
-            ncols = len(num_labels)
+            ncols = num_labels
     f2.legend(handles, labels, loc='center', ncol=ncols)
     plt.savefig(filename, bbox_tight=True)
     plt.close('all')
