@@ -9,7 +9,8 @@ import numpy as np
 import os
 
 
-def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True):
+def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True,
+                legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': font_size})
@@ -23,6 +24,21 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
                 ncols += 1
         else:
             ncols = num_labels
+    if legend_name_idx is not None:
+        if legend_name_style == 'bf':
+            labels[legend_name_idx] = r'\textbf{' + labels[legend_name_idx] + '}'
+        elif legend_name_style == 'it':
+            labels[legend_name_idx] = r'\textit{' + labels[legend_name_idx] + '}'
+        elif legend_name_style == 'bfit' or legend_name_style == 'itbf':
+            labels[legend_name_idx] = r'\textit{\textbf{' + labels[legend_name_idx] + '}}'
+    if ncols > 1 and labels_right_to_left:
+        sorted_handle_labels = list()
+        for i in range(ncols):
+            for idx, h_l in enumerate(zip(handles, labels)):
+                if idx % ncols == i:
+                    sorted_handle_labels.append(h_l)
+        handles, labels = zip(*sorted_handle_labels)
+
     f2.legend(handles, labels, loc='center', ncol=ncols)
     plt.savefig(filename, bbox_tight=True)
     plt.close('all')
@@ -31,10 +47,12 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': default_font_size})
 
+
 def save_n_crop(fn):
     plt.savefig(fn)
     if fn.endswith('.pdf'):
         crop_pdf(fn)
+
 
 def crop_pdf(fn, out_filename=None, bgtask=True):
     out_filename = fn if out_filename is None else out_filename
