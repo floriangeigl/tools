@@ -26,7 +26,7 @@ def create_multi_index_df(data_frame_dict):
     return pd.DataFrame(columns=columns, data=data)
 
 
-def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6):
+def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False):
     result_str = ''
     if cols is not None:
         df = df[cols].copy()
@@ -35,7 +35,11 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6):
     width = len(df.columns)
     col_fmt = '{l|' + '|'.join('c' * width) + '}'
     result_str += '\\begin{tabular*}{\\linewidth}' + col_fmt + '\n\\toprule\n'
-    header = ' & ' + ' & '.join(df.columns) + '\\\\\n\\midrule\n'
+    if print_index:
+        header = ' & '
+    else:
+        header = ''
+    header += ' & '.join(df.columns) + '\\\\\n\\midrule\n'
     for col in df.columns:
         col_min, col_max = df[col].min(), df[col].max()
         # print len(df[col])
@@ -43,21 +47,40 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6):
                       zip(sorted(np.array(df[col])), [40, 30, 20, 20, 30, 40],
                           ['blue', 'blue', 'blue', 'red', 'red', 'red'])}
         # print color_dict
-        df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
-            "$\\bm{" + str(x == col_min) + str(x)[:digits] + "}$" % x if (x == col_min or x == col_max) else '$' + str(
-                x)[:digits] + '$'))
-        if mark_min:
-            df[col] = df[col].apply(lambda x: x.replace('False', '\\wedge'))
-        if mark_max:
-            df[col] = df[col].apply(lambda x: x.replace('True', '\\vee'))
+        format_string = '%.' + str(int(digits)) + 'f'
+
+        if df[col].dtype == np.float:
+            if trim_zero_digits:
+                num_format = lambda x: (format_string % float(x)).rstrip('0')
+            else:
+                num_format = lambda x: (format_string % float(x))
+        elif df[col].dtype == np.int:
+            num_format = lambda x: str(x)
+        else:
+            num_format = None
+
+        if num_format is not None:
+            df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
+                "$\\bm{" + str(x == col_min) + num_format(x) + "}$" % x if (
+                    x == col_min or x == col_max) else '$' + num_format(x) + '$'))
+            if mark_min:
+                df[col] = df[col].apply(lambda x: x.replace('False', '\\wedge'))
+            else:
+                df[col] = df[col].apply(lambda x: x.replace('False', ''))
+            if mark_max:
+                df[col] = df[col].apply(lambda x: x.replace('True', '\\vee'))
+            else:
+                df[col] = df[col].apply(lambda x: x.replace('True', ''))
     #result_str += str(df)
     result_str += header
     for idx, i in df.iterrows():
-        row_name = idx
-        if '_' in row_name:
-            row_name = ' '.join([x[:3] + '.' for x in idx.split('_')])
-        result_str += row_name + ' & ' + ' & '.join(i) + ' \\\\\n'
+        if print_index:
+            idx = str(idx) + ' & '
+        else:
+            idx = ''
+        result_str += idx + ' & '.join(i) + ' \\\\\n'
     result_str += '\\bottomrule\n\\end{tabular*}'
+    result_str = '\usepackage{ctable}\n\usepackage{tabularx}\n\usepackage{colortbl}\n\n' + result_str
     return result_str
 
 
