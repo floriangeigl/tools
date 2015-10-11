@@ -31,6 +31,11 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
             labels[legend_name_idx] = r'\textit{' + labels[legend_name_idx] + '}'
         elif legend_name_style == 'bfit' or legend_name_style == 'itbf':
             labels[legend_name_idx] = r'\textit{\textbf{' + labels[legend_name_idx] + '}}'
+        else:
+            labels[legend_name_idx] = labels[legend_name_idx]
+        if legend_name_style is not None:
+            use_text_default = matplotlib.rcParams['text.usetex']
+            matplotlib.rcParams['text.usetex'] = True
     if ncols > 1 and labels_right_to_left:
         sorted_handle_labels = list()
         for i in range(ncols):
@@ -46,6 +51,8 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
         crop_pdf(filename)
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': default_font_size})
+    if legend_name_idx is not None and legend_name_style is not None:
+        matplotlib.rcParams['text.usetex'] = use_text_default
 
 
 def save_n_crop(fn):
