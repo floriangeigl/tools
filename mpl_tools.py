@@ -9,14 +9,21 @@ import numpy as np
 import os
 
 
-def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, crop=True):
+def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': font_size})
     f2 = plt.figure(figsize=figsize)
     handles, labels = ax.get_legend_handles_labels()
-    num_labels = len(labels)
-    f2.legend(handles, labels, loc='center', ncol=num_labels if ncols is None else ncols)
+    if ncols is None:
+        num_labels = len(labels)
+        if nrows is not None:
+            ncols = int(num_labels / nrows)
+            if num_labels % nrows != 0:
+                ncols += 1
+        else:
+            ncols = len(num_labels)
+    f2.legend(handles, labels, loc='center', ncol=ncols)
     plt.savefig(filename, bbox_tight=True)
     plt.close('all')
     if filename.endswith('.pdf') and crop:
