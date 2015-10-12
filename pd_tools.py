@@ -9,6 +9,8 @@ import pandas as pd
 import printing
 import basics
 import operator
+from collections import defaultdict
+import copy
 
 
 def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
@@ -26,7 +28,16 @@ def create_multi_index_df(data_frame_dict):
     return pd.DataFrame(columns=columns, data=data)
 
 
-def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False):
+def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False,
+                    thousands_mark=',',colors=None):
+    default_colors = [(40, 'blue'), (30, 'blue'), (20, 'blue'), (20, 'red'), (30, 'red'), (40, 'red')]
+    if colors is None:
+        colors = defaultdict(lambda: default_colors)
+    elif isinstance(colors, list):
+        default_colors = colors
+        colors = defaultdict(lambda: default_colors)
+    elif isinstance(colors, dict):
+        colors = defaultdict(lambda: default_colors, colors)
     result_str = ''
     if cols is not None:
         df = df[cols].copy()
@@ -40,20 +51,21 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
     else:
         header = ''
     header += ' & '.join(df.columns) + '\\\\\n\\midrule\n'
-    for col in df.columns:
+    for col_idx, col in enumerate(df.columns):
         col_min, col_max = df[col].min(), df[col].max()
         # print len(df[col])
+        col_colors = colors[col]
         color_dict = {key: color + '!' + str(val)[:3] for key, val, color in
-                      zip(sorted(np.array(df[col])), [40, 30, 20, 20, 30, 40],
-                          ['blue', 'blue', 'blue', 'red', 'red', 'red'])}
+                      zip(sorted(np.array(df[col])), *zip(*col_colors))}
         # print color_dict
-        format_string = '%.' + str(int(digits)) + 'f'
+        col_digits = digits if isinstance(digits, (int, float)) else digits[col_idx]
 
         if df[col].dtype == np.float:
+            format_string = '{:,.' + str(col_digits) + 'f}'
             if trim_zero_digits:
-                num_format = lambda x: (format_string % float(x)).rstrip('0')
+                num_format = lambda x: (format_string.format(x)).rstrip('0').rstrip('.')
             else:
-                num_format = lambda x: (format_string % float(x))
+                num_format = lambda x: format_string.format(x)
         elif df[col].dtype == np.int:
             num_format = lambda x: str(x)
         else:
