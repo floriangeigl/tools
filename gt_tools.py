@@ -315,17 +315,28 @@ class SBMGenerator():
     @staticmethod
     def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,
                              degree_seq='powerlaw', powerlaw_exp=2.4, num_links=None, loops=False, min_degree=1,
-                             con_prob_matrix=None):
+                             con_prob_matrix=None, increase_lcc_prob=True, parallel_edges=False):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
-        nodes_range = np.array(range(num_nodes))
+        if isinstance(blocks, list):
+            num_nodes = sum(blocks)
+            num_blocks = len(blocks)
+            block_sizes = blocks
+        else:
+            num_blocks = blocks
+            block_sizes = [int(num_nodes / num_blocks) for i in range(num_blocks)]
+            num_unmapped_nodes = num_nodes % num_blocks
+            print 'unmapped nodes', num_unmapped_nodes
+            if num_unmapped_nodes > 0:
+                for i in range(num_unmapped_nodes):
+                    block_sizes[i] += 1
         g.add_vertex(num_nodes)
+
         if con_prob_matrix is not None:
             assert con_prob_matrix.shape[0] == con_prob_matrix.shape[1]
-            blocks = con_prob_matrix.shape[0]
-        com_pmap.a = [v % blocks for v in map(int, g.vertices())]
+        com_pmap.a = np.hstack([np.array([idx] * i) for idx, i in enumerate(block_sizes)])
         g.vp['com'] = com_pmap
-        other_con /= ((blocks - 1) if blocks > 1 else 1)
+        other_con /= ((num_blocks - 1) if num_blocks > 1 else 1)
 
         prob_pmap = g.new_vertex_property('float')
         block_to_vertices = dict()
@@ -350,10 +361,14 @@ class SBMGenerator():
         # print degree_seq
         block_deg_seq_sum = dict()
         vertices_array = np.array(map(int, g.vertices()))
-        for i in range(blocks):
+        degree_indices = set(range(g.num_vertices()))
+        for i in range(num_blocks):
             mask = com_pmap.a == i
+            block_num_vertices = mask.sum()
             block_to_vertices[i] = vertices_array[mask]
-            block_deg_seq = degree_seq[nodes_range % blocks == i]
+            block_deg_seq_idx = random.sample(degree_indices, block_num_vertices)
+            degree_indices -= set(block_deg_seq_idx)
+            block_deg_seq = degree_seq[block_deg_seq_idx]
             deg_seq_sum = block_deg_seq.sum()
             block_deg_seq /= deg_seq_sum
             cum_sum = np.cumsum(block_deg_seq)
@@ -362,9 +377,9 @@ class SBMGenerator():
             block_deg_seq_sum[i] = deg_seq_sum
             prob_pmap.a[mask] = block_deg_seq
         blocks_prob = list()
-        for i in range(blocks):
+        for i in range(num_blocks):
             row = list()
-            for j in range(blocks):
+            for j in range(num_blocks):
                 if con_prob_matrix is None:
                     if i == j:
                         val = self_con
@@ -378,60 +393,67 @@ class SBMGenerator():
         blocks_prob /= blocks_prob.sum()
         # print blocks_prob
         cum_sum = np.cumsum(blocks_prob)
-        assert np.allclose(cum_sum[-1], 1)
+        assert np.isclose(cum_sum[-1], 1)
         # print cum_sum
-        edges = set()
-        for v in g.vertices():
-            if directed or not v.out_degree():
-                src_block = com_pmap[v]
-                init_len = len(edges)
-                while init_len == len(edges):
-                    dest_b = SBMGenerator.get_one_random_block(cum_sum, blocks, src_block)
-                    dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
-                    link = (int(v), dest_v) if directed else tuple(sorted([int(v), dest_v]))
-                    is_loop = v == dest_v
-                    if not is_loop:
-                        edges.add(link)
-                    elif loops:
-                        edges.add(tuple(sorted(link)))
+        if parallel_edges:
+            edges = list()
+            edges_adder = edges.append
+        else:
+            edges = set()
+            edges_adder = edges.add
+        if increase_lcc_prob:
+            for v in g.vertices():
+                if directed or v.out_degree() == 0:
+                    src_block = com_pmap[v]
+                    init_len = len(edges)
+                    while init_len == len(edges):
+                        dest_b = SBMGenerator.get_one_random_block(cum_sum, num_blocks, src_block)
+                        dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
+                        link = (int(v), dest_v)
+                        is_loop = v == dest_v
+                        if not is_loop:
+                            if not directed:
+                                link = tuple(sorted(link))
+                            edges_adder(link)
+                        elif loops:
+                            edges_adder(link)
 
         for link_idx in range(num_links - len(edges)):
             while True:
                 #maybe switch to: get random node. identify block. get random dest-block.
-                src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, blocks)
+                src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, num_blocks)
                 src_v = block_to_vertices[src_b][SBMGenerator.get_random_node(block_to_cumsum[src_b])]
                 dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
-                link = (src_v, dest_v) if directed else tuple(sorted([src_v, dest_v]))
+                link = (src_v, dest_v)
                 is_loop = src_v == dest_v
                 if not is_loop:
-                    edges.add(link)
+                    if not directed:
+                        link = tuple(sorted(link))
+                    edges_adder(link)
                     break
                 elif loops:
-                    edges.add(tuple(sorted(link)))
+                    edges_adder(link)
                     break
-        g.add_edge_list(list(edges))
+        if not isinstance(edges, list):
+            edges = list(edges)
+        g.add_edge_list(edges)
         return g
 
     @staticmethod
     def get_random_node(cum_sum):
         rand_num = np.random.random()
-        idx = 0
-        for idx, i in enumerate(cum_sum):
-            if i >= rand_num:
-                return idx
-        print 'warn: get rand num till end'
-        return idx
+        return np.searchsorted(cum_sum, rand_num)
 
     @staticmethod
     def get_random_blocks(cum_sum, num_blocks):
         rand_num = np.random.random()
-        idx = 0
-        for idx, i in enumerate(cum_sum):
-            if i >= rand_num:
-                # return row, col of cum_sum_matrix
-                return idx % num_blocks, int(idx / num_blocks)
-        print 'warn: get rand block till end'
-        return idx % num_blocks, int(idx / num_blocks)
+        idx = np.searchsorted(cum_sum, rand_num)
+        row = int(idx / num_blocks)
+        col = idx % num_blocks
+        #print rand_num
+        #print row, col
+        #print cum_sum
+        return row, col
 
     @staticmethod
     def get_one_random_block(cum_sum, num_blocks, row):
@@ -442,20 +464,24 @@ class SBMGenerator():
         return dest_b
 
     @staticmethod
-    def gen_bow_tie_model(scc_size, out_size, in_size, self_con=0.97, other_con=0.03, **kwargs):
-        num_nodes = sum([scc_size, out_size, in_size])
-        con_prob_matrix = np.zeros((3, 3))
-        for i in range(3):
-            for j in range(3):
-                if i == j:
-                    con_prob_matrix[i, i] = self_con
-                elif i < j:
-                    con_prob_matrix[i, j] = other_con
-                elif i > j:
-                    con_prob_matrix[i, j] = 0
-        print con_prob_matrix
-        return SBMGenerator.gen_stoch_blockmodel(num_nodes=num_nodes, blocks=3, con_prob_matrix=con_prob_matrix,
-                                                 directed=True)
+    def gen_bow_tie_model(scc_size, out_size, in_size, con_prob_matrix=None, **kwargs):
+        blocks = [scc_size, out_size, in_size]
+        if con_prob_matrix is None:
+            con_prob_matrix = np.zeros((3, 3))
+            # in-comp
+            con_prob_matrix[0, 0] = 0.001  # self
+            con_prob_matrix[0, 1] = 0.1  # scc
+            con_prob_matrix[0, 2] = 0.05  # out
+
+            # scc
+            con_prob_matrix[1, 1] = 5  # self
+            con_prob_matrix[1, 2] = 0.1  # out
+
+            con_prob_matrix[2, 2] = 0.01  # self
+        np.set_printoptions(formatter=dict(float=lambda x: '%.5f' % x))
+        print con_prob_matrix / con_prob_matrix.sum()
+        return SBMGenerator.gen_stoch_blockmodel(blocks=blocks, con_prob_matrix=con_prob_matrix,
+                                                 directed=True, **kwargs)
 
 
 
@@ -482,16 +508,17 @@ class SBMGenerator():
 
 def bow_tie(graph):
     assert graph.is_directed()
-    largest_component = label_largest_component(graph, directed=True)
+    largest_component = label_largest_component(graph)
     weakly_components = label_components(graph, directed=False)[0]
-    largest_component_corresponding_weakly = list(set(weakly_components.a[np.nonzero(largest_component.a)[0]]))
+    largest_component_corresponding_weakly = list(
+        set(weakly_components.a[np.nonzero(largest_component.a)[0]]))
     assert len(largest_component_corresponding_weakly) == 1
     largest_component_corresponding_weakly = largest_component_corresponding_weakly[0]
-    wcc = (weakly_components.a == largest_component_corresponding_weakly).astype('int')
+    wcc = (weakly_components.a == largest_component_corresponding_weakly)
 
     # Core, In and Out
     all_nodes = set(range(graph.num_vertices()))
-    scc = set(np.nonzero(largest_component.a.astype('int'))[0])
+    scc = set(np.nonzero(largest_component.a)[0])
     scc_node = random.sample(scc, 1)[0]
     graph_reversed = GraphView(graph, reversed=True)
 

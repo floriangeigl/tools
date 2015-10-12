@@ -9,6 +9,44 @@ import numpy as np
 import os
 
 
+def plot_set_limits(values=None, min_v=None, max_v=None, axis=None, ax=None, offset_percent=5):
+    if values is not None:
+        values = np.array(values)
+        if min_v is None:
+            min_v = values.min()
+        if max_v is None:
+            max_v = values.max()
+    assert min_v is not None and max_v is not None
+    range_v = max_v - min_v
+    offset = range_v * (offset_percent / 100)
+    min_v -= offset
+    max_v += offset
+    if axis is not None:
+        axis = axis.lower()
+    if ax is None:
+        if axis is None:
+            plt.xlim([min_v, max_v])
+            plt.ylim([min_v, max_v])
+        else:
+            if 'x' in axis:
+                plt.xlim([min_v, max_v])
+            elif 'y' in axis:
+                plt.ylim([min_v, max_v])
+            else:
+                print 'axis:', ax, 'unknown. use "x" or "y"'
+    else:
+        if axis is None:
+            ax.set_xlim([min_v, max_v])
+            ax.set_ylim([min_v, max_v])
+        else:
+            if 'x' in axis:
+                ax.xlim([min_v, max_v])
+            elif 'y' in axis:
+                ax.ylim([min_v, max_v])
+            else:
+                print 'axis:', ax, 'unknown. use "x" or "y"'
+
+
 def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True,
                 legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True):
     default_font_size = matplotlib.rcParams['font.size']

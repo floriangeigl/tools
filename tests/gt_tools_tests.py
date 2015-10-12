@@ -234,7 +234,7 @@ class Test_SBMGenerator(unittest.TestCase):
         self_con = .8
         other_con = 0.05
         g = self.gen.gen_stoch_blockmodel(min_degree=1, blocks=5, self_con=self_con, other_con=other_con,
-                                          powerlaw_exp=2.1, degree_seq='powerlaw', num_nodes=1000)
+                                          powerlaw_exp=2.1, degree_seq='powerlaw', num_nodes=1000, num_links=3000)
         deg_hist = vertex_hist(g, 'total')
         res = fit_powerlaw.Fit(g.degree_property_map('total').a, discrete=True)
         print 'powerlaw alpha:', res.power_law.alpha
@@ -250,7 +250,8 @@ class Test_SBMGenerator(unittest.TestCase):
         plt.savefig('deg_dist_test.png')
         plt.close('all')
         print 'plot graph'
-        graph_draw(g, output='graph.png', output_size=(800, 800),
+        pos = sfdp_layout(g, groups=g.vp['com'], mu=3)
+        graph_draw(g, pos=pos, output='graph.png', output_size=(800, 800),
                    vertex_size=prop_to_size(g.degree_property_map('total'), mi=2, ma=30), vertex_color=[0., 0., 0., 1.],
                    vertex_fill_color=g.vp['com'],
                    bg_color=[1., 1., 1., 1.])
@@ -259,17 +260,85 @@ class Test_SBMGenerator(unittest.TestCase):
         print 'real:', gt_tools.get_graph_com_connectivity(g, 'com')
 
     def test_bow_tie_model_gen(self):
-        scc_size = 30
-        out_size = 30
-        in_size = 30
-        g = self.gen.gen_bow_tie_model(scc_size, out_size, in_size, self_con=0.8, other_con=0.2, num_links=300)
-        print g.vp.keys()
-        pos = sfdp_layout(g, groups=g.vp['com'])
+        scc_size = 1000
+        out_size = 300
+        in_size = 300
+        num_nodes = sum([scc_size, out_size, in_size])
+        num_links = int((num_nodes * (num_nodes-1)) * 0.01)
+        print 'nodes:', num_nodes, '|| links:', num_links
+        g = self.gen.gen_bow_tie_model(scc_size, out_size, in_size, con_prob_matrix=None, increase_lcc_prob=False,
+                                       min_degree=6)
 
-        print sorted(gt_tools.bow_tie(g).iteritems(), key=operator.itemgetter(0))
+        bow_tie_dict = gt_tools.bow_tie(g)
+        print bow_tie_dict
+        bow_tie_dict = {key: 0 for key, val in bow_tie_dict.iteritems()}
+
+        g_groups = g.new_vertex_property('int')
+        bow_tie_pmap = g.vp['bowtie']
+        bow_tie_comps = sorted(set([bow_tie_pmap[v] for v in g.vertices()]))
+        bow_tie_comps = {c: idx for idx, c in enumerate(bow_tie_comps)}
+
+        pos = g.new_vertex_property('vector<float>')
+        max_degs = dict()
+
+        def update_max_degs(c, d, max_degs):
+            try:
+                c_max = max_degs[c]
+            except KeyError:
+                c_max = d
+            max_degs[c] = c_max
+
+        deg_prop_map = g.degree_property_map('total')
+        lcc = label_largest_component(g, directed=False)
         for v in g.vertices():
-            g.vp['bowtie'][v] = str(str(g.vp['bowtie'][v])[0])
-        graph_draw(g, pos, output='bow_tie.png', vertex_text=g.vp['bowtie'])
+            if lcc[v] > 0:
+                comp_name = bow_tie_pmap[v]
+                v_deg = deg_prop_map[v]
+                update_max_degs(comp_name, v_deg, max_degs)
+                if comp_name == 'IN':
+                    pos[v] = [0, 10]
+                elif comp_name == 'OUT':
+                    pos[v] = [20, 10]
+                elif comp_name == 'SCC':
+                    pos[v] = [10, 10]
+                elif comp_name == 'TUBE':
+                    pos[v] = [10, 30]
+                elif comp_name == 'TL_OUT':
+                    pos[v] = [20, 0]
+                elif comp_name == 'TL_IN':
+                    pos[v] = [0, 0]
+                elif comp_name == 'OTHER':
+                    pos[v] = [20, 20]
+                else:
+                    print comp_name
+
+        v_sorting = g.new_vertex_property('int')
+        vertex_text = g.new_vertex_property('string')
+        for v in g.vertices():
+            if lcc[v] > 0:
+                comp_name = bow_tie_pmap[v]
+                g_groups[v] = bow_tie_comps[comp_name]
+                if deg_prop_map[v] == max_degs[comp_name] and bow_tie_dict[comp_name] == 0:
+                    bow_tie_dict[comp_name] = 1
+                    vertex_text[v] = comp_name
+                    v_sorting[v] = 1
+                else:
+                    vertex_text[v] = ''
+
+        pos_ar = pos.get_2d_array([0, 1])[:, lcc.a == 1]
+        g.set_vertex_filter(lcc)
+        g.purge_vertices()
+        pos = g.new_vertex_property('vector<float>')
+        pos_ar += np.random.normal(loc=0., scale=1., size=pos_ar.shape)
+
+        pos.set_2d_array(pos_ar)
+        pos = sfdp_layout(g, pos=pos, groups=g_groups, gamma=0., mu=1, mu_p=.2, p=2, C=0.3)
+        # pos = sfdp_layout(g, groups=g_groups, gamma=0., mu=1, mu_p=.2)
+
+        graph_draw(g, pos, output='bow_tie.png', vorder=v_sorting, vertex_text=vertex_text,
+                   vertex_fill_color=g_groups,
+                   output_size=(800, 800), vertex_size=prop_to_size(g.degree_property_map('total'), mi=5, ma=15))
+        g.save('bow_tie.gt')
 
 
 '''
