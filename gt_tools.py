@@ -314,11 +314,15 @@ def get_graph_com_connectivity(g, com_map='com'):
 class SBMGenerator():
     @staticmethod
     def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,
-                             degree_seq='powerlaw', powerlaw_exp=2.4, num_links=None, loops=False, min_degree=1):
+                             degree_seq='powerlaw', powerlaw_exp=2.4, num_links=None, loops=False, min_degree=1,
+                             con_prob_matrix=None):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         nodes_range = np.array(range(num_nodes))
         g.add_vertex(num_nodes)
+        if con_prob_matrix is not None:
+            assert con_prob_matrix.shape[0] == con_prob_matrix.shape[1]
+            blocks = con_prob_matrix.shape[0]
         com_pmap.a = [v % blocks for v in map(int, g.vertices())]
         g.vp['com'] = com_pmap
         other_con /= ((blocks - 1) if blocks > 1 else 1)
@@ -361,10 +365,13 @@ class SBMGenerator():
         for i in range(blocks):
             row = list()
             for j in range(blocks):
-                if i == j:
-                    val = self_con
+                if con_prob_matrix is None:
+                    if i == j:
+                        val = self_con
+                    else:
+                        val = other_con
                 else:
-                    val = other_con
+                    val = con_prob_matrix.item((i, j))
                 row.append(val * block_deg_seq_sum[i] * block_deg_seq_sum[j])
             blocks_prob.append(np.array(row))
         blocks_prob = np.array(blocks_prob)
@@ -435,6 +442,24 @@ class SBMGenerator():
         return dest_b
 
     @staticmethod
+    def gen_bow_tie_model(scc_size, out_size, in_size, self_con=0.97, other_con=0.03, **kwargs):
+        num_nodes = sum([scc_size, out_size, in_size])
+        con_prob_matrix = np.zeros((3, 3))
+        for i in range(3):
+            for j in range(3):
+                if i == j:
+                    con_prob_matrix[i, i] = self_con
+                elif i < j:
+                    con_prob_matrix[i, j] = other_con
+                elif i > j:
+                    con_prob_matrix[i, j] = 0
+        print con_prob_matrix
+        return SBMGenerator.gen_stoch_blockmodel(num_nodes=num_nodes, blocks=3, con_prob_matrix=con_prob_matrix,
+                                                 directed=True)
+
+
+
+    @staticmethod
     def analyse_graph(g, filename='output/net', draw_net=False):
         print str(g)
         deg_map = g.degree_property_map('total')
@@ -454,6 +479,69 @@ class SBMGenerator():
                        vertex_size=prop_to_size(deg_map, mi=2, ma=15, power=1.), output=filename + '_network.png',
                        bg_color=[1, 1, 1, 1])
 
+
+def bow_tie(graph):
+    assert graph.is_directed()
+    largest_component = label_largest_component(graph, directed=True)
+    weakly_components = label_components(graph, directed=False)[0]
+    largest_component_corresponding_weakly = list(set(weakly_components.a[np.nonzero(largest_component.a)[0]]))
+    assert len(largest_component_corresponding_weakly) == 1
+    largest_component_corresponding_weakly = largest_component_corresponding_weakly[0]
+    wcc = (weakly_components.a == largest_component_corresponding_weakly).astype('int')
+
+    # Core, In and Out
+    all_nodes = set(range(graph.num_vertices()))
+    scc = set(np.nonzero(largest_component.a.astype('int'))[0])
+    scc_node = random.sample(scc, 1)[0]
+    graph_reversed = GraphView(graph, reversed=True)
+
+    outc = np.nonzero(label_out_component(graph, scc_node).a)[0]
+    inc = np.nonzero(label_out_component(graph_reversed, scc_node).a)[0]
+    outc = set(outc) - scc
+    inc = set(inc) - scc
+
+    # Tubes, Tendrils and Other
+    wcc = set(np.nonzero(wcc)[0])
+    tube = set()
+    out_tendril = set()
+    in_tendril = set()
+    other = all_nodes - wcc
+    remainder = wcc - inc - outc - scc
+
+    for idx, r in enumerate(remainder):
+        print idx + 1, '/', len(remainder), '\r',
+        predecessors = set(np.nonzero(label_out_component(graph_reversed, r).a)[0])
+        successors = set(np.nonzero(label_out_component(graph, r).a)[0])
+        if any(p in inc for p in predecessors):
+            if any(s in outc for s in successors):
+                tube.add(r)
+            else:
+                in_tendril.add(r)
+        elif any(s in outc for s in successors):
+            out_tendril.add(r)
+        else:
+            other.add(r)
+
+    vp_bowtie = graph.new_vertex_property('string')
+    for component, label in [
+        (inc, 'IN'),
+        (scc, 'SCC'),
+        (outc, 'OUT'),
+        (in_tendril, 'TL_IN'),
+        (out_tendril, 'TL_OUT'),
+        (tube, 'TUBE'),
+        (other, 'OTHER')
+    ]:
+        for node in component:
+            vp_bowtie[graph.vertex(node)] = label
+    graph.vp['bowtie'] = vp_bowtie
+
+    bow_tie = map(len, [inc, scc, outc, in_tendril, out_tendril, tube, other])
+    assert sum(bow_tie) == graph.num_vertices()
+    bow_tie = [100 * x / graph.num_vertices() for x in bow_tie]
+    bow_tie = dict(IN=bow_tie[0], SCC=bow_tie[1], OUT=bow_tie[2], TL_IN=bow_tie[3], TL_OUT=bow_tie[4], TUBE=bow_tie[5],
+                   OTHER=bow_tie[6])
+    return bow_tie
 
 
 # Generator Class works with GraphTool generators, as they provide more functionality than NetworkX Generators

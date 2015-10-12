@@ -21,6 +21,7 @@ import os
 import powerlaw as fit_powerlaw
 import datetime
 import time
+import operator
 from timeit import Timer
 
 
@@ -256,6 +257,20 @@ class Test_SBMGenerator(unittest.TestCase):
         plt.close('all')
         print 'init:', self_con / (self_con + other_con), other_con / (self_con + other_con)
         print 'real:', gt_tools.get_graph_com_connectivity(g, 'com')
+
+    def test_bow_tie_model_gen(self):
+        scc_size = 30
+        out_size = 30
+        in_size = 30
+        g = self.gen.gen_bow_tie_model(scc_size, out_size, in_size, self_con=0.8, other_con=0.2, num_links=300)
+        print g.vp.keys()
+        pos = sfdp_layout(g, groups=g.vp['com'])
+
+        print sorted(gt_tools.bow_tie(g).iteritems(), key=operator.itemgetter(0))
+        for v in g.vertices():
+            g.vp['bowtie'][v] = str(str(g.vp['bowtie'][v])[0])
+        graph_draw(g, pos, output='bow_tie.png', vertex_text=g.vp['bowtie'])
+
 
 '''
 class Test_fast_sd(unittest.TestCase):
