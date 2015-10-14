@@ -29,8 +29,16 @@ def create_multi_index_df(data_frame_dict):
 
 
 def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False,
-                    thousands_mark=True, colors=None):
-    default_colors = [(40, 'blue'), (30, 'blue'), (20, 'blue'), (20, 'red'), (30, 'red'), (40, 'red')]
+                    thousands_mark=True, colors=None, diverging=False, color='blue', color2='red'):
+    if diverging:
+        num_steps = int(len(df) / 2) + 1
+        steps = np.linspace(40, 20, num_steps).astype('int')
+        default_colors = zip(steps, [color] * len(steps)) + zip(steps, [color2] * len(steps))
+    else:
+        steps = np.linspace(40, 20, len(df)).astype('int')
+        default_colors = zip(steps, [color] * len(steps))
+    # default_colors = [(40, 'blue'), (30, 'blue'), (20, 'blue'), (20, 'red'), (30, 'red'), (40, 'red')]
+    assert len(default_colors) >= len(df)
     if colors is None:
         colors = defaultdict(lambda: default_colors)
     elif isinstance(colors, list):
@@ -55,11 +63,7 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
         col_min, col_max = df[col].min(), df[col].max()
         # print len(df[col])
         col_colors = colors[col]
-        color_dict = {key: color + '!' + str(val)[:3] for key, val, color in
-                      zip(sorted(np.array(df[col])), *zip(*col_colors))}
-        # print color_dict
         col_digits = digits if isinstance(digits, (int, float)) else digits[col_idx]
-
         if df[col].dtype == np.float:
             if thousands_mark:
                 format_string = '{:,.' + str(col_digits) + 'f}'
@@ -75,9 +79,18 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
             num_format = None
 
         if num_format is not None:
+            sorted_vals = map(num_format, sorted(df[col]))
+            df[col] = df[col].map(num_format)
+            col_min, col_max = num_format(col_min), num_format(col_max)
+
+        color_dict = {key: color + '!' + str(val)[:3] for key, val, color in
+                      zip(sorted_vals, *zip(*col_colors))}
+        print df[col]
+        print color_dict
+        if num_format is not None:
             df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
-                "$\\bm{" + str(x == col_min) + num_format(x) + "}$" % x if (
-                    x == col_min or x == col_max) else '$' + num_format(x) + '$'))
+                "$\\bm{" + str(x == col_min) + x + "}$" if (
+                    x == col_min or x == col_max) else '$' + x + '$'))
             if mark_min:
                 df[col] = df[col].apply(lambda x: x.replace('False', '\\wedge'))
             else:
