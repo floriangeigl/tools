@@ -28,8 +28,9 @@ def create_multi_index_df(data_frame_dict):
     return pd.DataFrame(columns=columns, data=data)
 
 
-def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False,
-                    thousands_mark=True, colors=None, diverging=False, color='blue', color2='red'):
+def print_tex_table(df, cols=None, mark_min=r'\wedge\ ', mark_max=r'\vee\ ', mark_any_space=r'\ \ ', digits=6, trim_zero_digits=False, print_index=False,
+                    thousands_mark=True, scientific_notation=False, colors=None, diverging=False, color='blue',
+                    color2='red', min_style=r'\bm', max_style=r'\bm'):
     if diverging:
         num_steps = int(len(df) / 2) + 1
         steps = np.linspace(40, 20, num_steps).astype('int')
@@ -37,6 +38,7 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
     else:
         steps = np.linspace(40, 20, len(df)).astype('int')
         default_colors = zip(steps, [color] * len(steps))
+
     # default_colors = [(40, 'blue'), (30, 'blue'), (20, 'blue'), (20, 'red'), (30, 'red'), (40, 'red')]
     assert len(default_colors) >= len(df)
     if colors is None:
@@ -52,25 +54,48 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
     else:
         df = df.copy()
     width = len(df.columns)
-    col_fmt = '{l|' + '|'.join('c' * width) + '}'
+    if print_index:
+        col_fmt = '{l|' + '|'.join('c' * (width-1)) + '}'
+    else:
+        col_fmt = '{l|' + '|'.join('c' * (width-2)) + '}'
     result_str += '\\begin{tabular*}{\\linewidth}' + col_fmt + '\n\\toprule\n'
     if print_index:
         header = ' & '
     else:
         header = ''
     header += ' & '.join(df.columns) + '\\\\\n\\midrule\n'
+
+    def create_list(a, list_len):
+        if not isinstance(a, list):
+            return [a] * list_len
+        else:
+            return a
+    num_cols = len(df.columns)
+    thousands_mark = create_list(thousands_mark, num_cols)
+    scientific_notation = create_list(scientific_notation, num_cols)
+    min_style = create_list(min_style, num_cols)
+    max_style = create_list(max_style, num_cols)
+    mark_min = create_list(mark_min, num_cols)
+    mark_max = create_list(mark_max, num_cols)
+    digits = create_list(digits, num_cols)
+    trim_zero_digits = create_list(trim_zero_digits, num_cols)
+
     for col_idx, col in enumerate(df.columns):
         col_min, col_max = df[col].min(), df[col].max()
         # print len(df[col])
         col_colors = colors[col]
-        col_digits = digits if isinstance(digits, (int, float)) else digits[col_idx]
+        col_digits = digits[col_idx]
         if df[col].dtype == np.float:
-            if thousands_mark:
-                format_string = '{:,.' + str(col_digits) + 'f}'
+            base_format = 'e' if scientific_notation[col_idx] else 'f'
+            if thousands_mark[col_idx]:
+                format_string = '{:,.' + str(col_digits) + base_format + '}'
             else:
-                format_string = '{:.' + str(col_digits) + 'f}'
-            if trim_zero_digits:
-                num_format = lambda x: (format_string.format(x)).rstrip('0').rstrip('.')
+                format_string = '{:.' + str(col_digits) + base_format + '}'
+            if trim_zero_digits[col_idx]:
+                if base_format == 'e':
+                    num_format = lambda x: (format_string.format(x)).split('e')[0].rstrip('0').rstrip('.') + 'e' + (format_string.format(x)).split('e')[-1]
+                else:
+                    num_format = lambda x: (format_string.format(x)).rstrip('0').rstrip('.')
             else:
                 num_format = lambda x: format_string.format(x)
         elif df[col].dtype == np.int:
@@ -85,13 +110,18 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
             color_dict = {key: color + '!' + str(val)[:3] for key, val, color in zip(sorted_vals, *zip(*col_colors))}
 
             df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
-                "$\\bm{" + str(x == col_min) + x + "}$" if (x == col_min or x == col_max) else '$' + x + '$'))
-            if mark_min:
-                df[col] = df[col].apply(lambda x: x.replace('False', '\\wedge'))
+                "$" + (min_style[col_idx] if x == col_min else max_style[col_idx]) + "{" + str(x == col_min) + x + "}$" if (
+                x == col_min or x == col_max) else '$' + x + '$'))
+            mark_any = mark_min[col_idx] or mark_max[col_idx]
+            if mark_any:
+                df[col] = df[col].apply(lambda x: mark_any_space + x if 'True' not in x and 'False' not in x else x)
+
+            if mark_min[col_idx]:
+                df[col] = df[col].apply(lambda x: x.replace('False', mark_min[col_idx]))
             else:
                 df[col] = df[col].apply(lambda x: x.replace('False', ''))
-            if mark_max:
-                df[col] = df[col].apply(lambda x: x.replace('True', '\\vee'))
+            if mark_max[col_idx]:
+                df[col] = df[col].apply(lambda x: x.replace('True', mark_max[col_idx]))
             else:
                 df[col] = df[col].apply(lambda x: x.replace('True', ''))
     #result_str += str(df)
