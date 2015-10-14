@@ -82,15 +82,10 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
             sorted_vals = map(num_format, sorted(df[col]))
             df[col] = df[col].map(num_format)
             col_min, col_max = num_format(col_min), num_format(col_max)
+            color_dict = {key: color + '!' + str(val)[:3] for key, val, color in zip(sorted_vals, *zip(*col_colors))}
 
-        color_dict = {key: color + '!' + str(val)[:3] for key, val, color in
-                      zip(sorted_vals, *zip(*col_colors))}
-        print df[col]
-        print color_dict
-        if num_format is not None:
             df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
-                "$\\bm{" + str(x == col_min) + x + "}$" if (
-                    x == col_min or x == col_max) else '$' + x + '$'))
+                "$\\bm{" + str(x == col_min) + x + "}$" if (x == col_min or x == col_max) else '$' + x + '$'))
             if mark_min:
                 df[col] = df[col].apply(lambda x: x.replace('False', '\\wedge'))
             else:
