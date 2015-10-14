@@ -29,7 +29,7 @@ def create_multi_index_df(data_frame_dict):
 
 
 def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False,
-                    thousands_mark=',',colors=None):
+                    thousands_mark=True, colors=None):
     default_colors = [(40, 'blue'), (30, 'blue'), (20, 'blue'), (20, 'red'), (30, 'red'), (40, 'red')]
     if colors is None:
         colors = defaultdict(lambda: default_colors)
@@ -61,7 +61,10 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
         col_digits = digits if isinstance(digits, (int, float)) else digits[col_idx]
 
         if df[col].dtype == np.float:
-            format_string = '{:,.' + str(col_digits) + 'f}'
+            if thousands_mark:
+                format_string = '{:,.' + str(col_digits) + 'f}'
+            else:
+                format_string = '{:.' + str(col_digits) + 'f}'
             if trim_zero_digits:
                 num_format = lambda x: (format_string.format(x)).rstrip('0').rstrip('.')
             else:
