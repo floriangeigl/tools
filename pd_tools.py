@@ -29,17 +29,17 @@ def create_multi_index_df(data_frame_dict):
 
 
 def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_zero_digits=False, print_index=False,
-                    thousands_mark=True, colors=None, diverging=False, color='blue', color2='red'):
+                    thousands_mark=True, colors=True, diverging=False, color1='blue', color2='red'):
     if diverging:
         num_steps = int(len(df) / 2) + 1
         steps = np.linspace(40, 20, num_steps).astype('int')
-        default_colors = zip(steps, [color] * len(steps)) + zip(steps, [color2] * len(steps))
+        default_colors = zip(steps, [color1] * len(steps)) + zip(steps, [color2] * len(steps))
     else:
         steps = np.linspace(40, 20, len(df)).astype('int')
-        default_colors = zip(steps, [color] * len(steps))
+        default_colors = zip(steps, [color1] * len(steps))
     # default_colors = [(40, 'blue'), (30, 'blue'), (20, 'blue'), (20, 'red'), (30, 'red'), (40, 'red')]
     assert len(default_colors) >= len(df)
-    if colors is None:
+    if colors is True:
         colors = defaultdict(lambda: default_colors)
     elif isinstance(colors, list):
         default_colors = colors
@@ -88,7 +88,7 @@ def print_tex_table(df, cols=None, mark_min=True, mark_max=True, digits=6, trim_
         print df[col]
         print color_dict
         if num_format is not None:
-            df[col] = df[col].apply(lambda x: '\\cellcolor{' + color_dict[x] + '} ' + (
+            df[col] = df[col].apply(lambda x: ((r'\cellcolor{' + color_dict[x] + '} ') if colors else '') + (
                 "$\\bm{" + str(x == col_min) + x + "}$" if (
                     x == col_min or x == col_max) else '$' + x + '$'))
             if mark_min:
