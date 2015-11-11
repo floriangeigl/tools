@@ -311,6 +311,7 @@ def get_graph_com_connectivity(g, com_map='com'):
     between_edges /= num_edges
     return intern_edges, between_edges
 
+
 class SBMGenerator():
     @staticmethod
     def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,

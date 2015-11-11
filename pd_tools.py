@@ -11,6 +11,7 @@ import basics
 import operator
 from collections import defaultdict
 import copy
+from pandas.core.base import FrozenList
 
 
 def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
@@ -137,6 +138,12 @@ def print_tex_table(df, cols=None, mark_min=r'\wedge\ ', mark_max=r'\vee\ ', mar
     result_str += r'\bottomrule' + '\n' + r'\end{tabular*}'
     result_str = r'\usepackage{ctable}' + '\n' + r'\usepackage{tabularx}' + '\n' + r'\usepackage{colortbl}' + '\n\n' + result_str
     return result_str
+
+
+def float_levels_to_str(df):
+    levels_0 = map(lambda x: ("%.50f" % x).rstrip('0'), map(float, df.columns.levels[0]))
+    levels_1 = df.columns.levels[1]
+    df.columns.levels = FrozenList([levels_0, levels_1])
 
 
 def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label="", y_label="", max_orig_lines=1000, alpha=0.1, verbose=True, file_ext='.png',lw=2):
