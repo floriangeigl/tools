@@ -140,8 +140,9 @@ def print_tex_table(df, cols=None, mark_min=r'\wedge\ ', mark_max=r'\vee\ ', mar
     return result_str
 
 
-def float_levels_to_str(df):
-    levels_0 = map(lambda x: ("%.50f" % x).rstrip('0'), map(float, df.columns.levels[0]))
+def float_levels_to_str(df, precision=5):
+    fmt_str = "%." + str(int(precision)) + "f"
+    levels_0 = map(lambda x: (fmt_str % x).rstrip('0'), map(float, df.columns.levels[0]))
     levels_1 = df.columns.levels[1]
     df.columns.levels = FrozenList([levels_0, levels_1])
 
