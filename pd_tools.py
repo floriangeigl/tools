@@ -145,6 +145,7 @@ def float_levels_to_str(df, precision=5):
     levels_0 = map(lambda x: (fmt_str % x).rstrip('0'), map(float, df.columns.levels[0]))
     levels_1 = df.columns.levels[1]
     df.columns.set_levels(FrozenList([levels_0, levels_1]))
+    return df
 
 
 def plot_df(df, filename, max=True, min=True, median=True, mean=True, x_label="", y_label="", max_orig_lines=1000, alpha=0.1, verbose=True, file_ext='.png',lw=2):
