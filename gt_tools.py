@@ -11,10 +11,6 @@ import os
 import matplotlib.cm as colormap
 from matplotlib.colors import ColorConverter as color_converter
 import pandas as pd
-import Image
-import ImageDraw
-import ImageFont
-import subprocess
 import printing
 import random
 import datetime
@@ -32,7 +28,8 @@ from collections import defaultdict
 import traceback
 from basics import create_folder_structure
 import powerlaw as fit_powerlaw
-from numba import jit
+
+
 
 def print_f(*args, **kwargs):
     if 'class_name' not in kwargs:
