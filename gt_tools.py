@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 from sys import platform as _platform
 import matplotlib
 import matplotlib.cm as colormap
@@ -128,12 +128,12 @@ def load_edge_list(filename, directed=False, vertex_weights=None, edge_weights=N
         try:
             g = load_graph(store_fname)
         except:
-            print 'failed loading. recreate graph'
+            print('failed loading. recreate graph')
             os.remove(store_fname)
             return load_edge_list(filename, directed=directed, vertex_id_dtype=vertex_id_dtype, sep=sep,
                                   comment=comment)
         if 'mtime' in g.gp.keys() and os.path.isfile(filename) and g.gp['mtime'] != os.path.getmtime(filename):
-            print 'modified edge-list. recreate graph'
+            print('modified edge-list. recreate graph')
             os.remove(filename + '.gt')
             return load_edge_list(filename, directed=directed, vertex_id_dtype=vertex_id_dtype, sep=sep,
                                   comment=comment)
@@ -238,8 +238,8 @@ def net_from_adj(mat, directed=True, parallel_edges=True):
         # diag-upper part only (including diag)
         row_idx, col_idx, data = zip(*[(r, c, d) for r, c, d in zip(row_idx, col_idx, data) if c <= r])
     if parallel_edges:
-        row_idx = np.array([r for r, d in zip(row_idx, data) for i in xrange(int(d))])
-        col_idx = np.array([c for c, d in zip(col_idx, data) for i in xrange(int(d))])
+        row_idx = np.array([r for r, d in zip(row_idx, data) for i in range(int(d))])
+        col_idx = np.array([c for c, d in zip(col_idx, data) for i in range(int(d))])
     g.add_edge_list(zip(col_idx, row_idx))
     if w:
         w.a = data
@@ -292,8 +292,8 @@ def load_property(network, filename, type='int', resolve='NodeId', sep=None, lin
                     pass
     unmapped_v = set(map(int,network.vertices())) - mapped_vertices
     if unmapped_v:
-        print filename, 'contained no mapping for', len(unmapped_v) / network.num_vertices() * 100, '% of all vertices'
-        print 'unmapped vertices:', list(unmapped_v)[:100]
+        print(filename, 'contained no mapping for', len(unmapped_v) / network.num_vertices() * 100, '% of all vertices')
+        print('unmapped vertices:', list(unmapped_v)[:100])
     return pmap
 
 
@@ -315,17 +315,17 @@ def check_aperiodic(g):
     if isinstance(g, str):
         a = adjacency(load_graph(g))
         name = g.rsplit('/')[-1].replace('.gt', '')
-        print 'aperiodic:', name
+        print('aperiodic:', name)
     else:
         a = adjacency(g)
     b = a * a
     diag_two_sum = b.diagonal().sum()
-    print '\tA*A diag sum:', int(diag_two_sum)
+    print('\tA*A diag sum:', int(diag_two_sum))
     b *= a
     diag_three_sum = b.diagonal().sum()
-    print '\tA*A*A diag sum:', int(diag_three_sum)
+    print('\tA*A*A diag sum:', int(diag_three_sum))
     aper = bool(diag_two_sum) and bool(diag_three_sum)
-    print '\taperiodic:', aper
+    print('\taperiodic:', aper)
     return aper
 
 class SBMGenerator():
@@ -343,7 +343,7 @@ class SBMGenerator():
             num_blocks = blocks
             block_sizes = [int(num_nodes / num_blocks) for i in range(num_blocks)]
             num_unmapped_nodes = num_nodes % num_blocks
-            print 'unmapped nodes', num_unmapped_nodes
+            print('unmapped nodes', num_unmapped_nodes)
             if num_unmapped_nodes > 0:
                 for i in range(num_unmapped_nodes):
                     block_sizes[i] += 1
@@ -370,12 +370,12 @@ class SBMGenerator():
         degree_seq /= degree_seq.sum()
         multiplier = min_degree/degree_seq.min()
         degree_seq *= multiplier
-        # print degree_seq
+        # print(degree_seq)
         if num_links is None:
-            # print 'min degree:', degree_seq.min()
+            # print('min degree:', degree_seq.min())
             num_links = int(np.round((degree_seq.round().sum() / 2)))
-            print '#links not set. using:', num_links
-        # print degree_seq
+            print('#links not set. using:', num_links)
+        # print(degree_seq)
         block_deg_seq_sum = dict()
         vertices_array = np.array(map(int, g.vertices()))
         degree_indices = set(range(g.num_vertices()))
@@ -408,10 +408,10 @@ class SBMGenerator():
             blocks_prob.append(np.array(row))
         blocks_prob = np.array(blocks_prob)
         blocks_prob /= blocks_prob.sum()
-        # print blocks_prob
+        # print(blocks_prob)
         cum_sum = np.cumsum(blocks_prob)
         assert np.isclose(cum_sum[-1], 1)
-        # print cum_sum
+        # print(cum_sum)
         if parallel_edges:
             edges = list()
             edges_adder = edges.append
@@ -467,9 +467,9 @@ class SBMGenerator():
         idx = np.searchsorted(cum_sum, rand_num)
         row = int(idx / num_blocks)
         col = idx % num_blocks
-        #print rand_num
-        #print row, col
-        #print cum_sum
+        #print(rand_num)
+        #print(row, col)
+        #print(cum_sum)
         return row, col
 
     @staticmethod
@@ -496,7 +496,7 @@ class SBMGenerator():
 
             con_prob_matrix[2, 2] = 0.01  # self
         np.set_printoptions(formatter=dict(float=lambda x: '%.5f' % x))
-        print con_prob_matrix / con_prob_matrix.sum()
+        print(con_prob_matrix / con_prob_matrix.sum())
         return SBMGenerator.gen_stoch_blockmodel(blocks=blocks, con_prob_matrix=con_prob_matrix,
                                                  directed=True, **kwargs)
 
@@ -504,7 +504,7 @@ class SBMGenerator():
 
     @staticmethod
     def analyse_graph(g, filename='output/net', draw_net=False):
-        print str(g)
+        print(str(g))
         deg_map = g.degree_property_map('total')
         plt.close('all')
         ser = pd.Series(deg_map.a)
@@ -512,8 +512,8 @@ class SBMGenerator():
         plt.xlabel('degree')
         plt.ylabel('num nodes')
         res = fit_powerlaw.Fit(deg_map.a, discrete=True)
-        print 'powerlaw alpha:', res.power_law.alpha
-        print 'powerlaw xmin:', res.power_law.xmin
+        print('powerlaw alpha:', res.power_law.alpha)
+        print('powerlaw xmin:', res.power_law.xmin)
         plt.title('powerlaw alpha:' + str(res.power_law.alpha) + ' || powerlaw xmin:' + str(res.power_law.xmin))
         plt.savefig(filename + '_degdist.png', bbox_tight=True)
         plt.close('all')
@@ -553,7 +553,7 @@ def bow_tie(graph):
     remainder = wcc - inc - outc - scc
 
     for idx, r in enumerate(remainder):
-        print idx + 1, '/', len(remainder), '\r',
+        print(idx + 1, '/', len(remainder), end='\r')
         predecessors = set(np.nonzero(label_out_component(graph_reversed, r).a)[0])
         successors = set(np.nonzero(label_out_component(graph, r).a)[0])
         if any(p in inc for p in predecessors):
@@ -655,7 +655,7 @@ class GraphGenerator():
         self_block_connectivity = self_block_connectivity if isinstance(self_block_connectivity, list) else [self_block_connectivity]
         other_block_connectivity = other_block_connectivity if isinstance(other_block_connectivity, list) else [other_block_connectivity]
 
-        num_nodes = sum([size[i % len(size)] for i in xrange(blocks)])
+        num_nodes = sum([size[i % len(size)] for i in range(blocks)])
         if power_exp is None:
             self.print_f("Starting to create Stochastic Blockmodel Graph with {} nodes and {} blocks".format(num_nodes, blocks))
         else:
@@ -712,9 +712,9 @@ class GraphGenerator():
         vertex_to_block = []
         appender = vertex_to_block.append
         colors = self.graph.new_vertex_property("float")
-        for i in xrange(blocks):
+        for i in range(blocks):
             block_size = size[i % len(size)]
-            for j in xrange(block_size):
+            for j in range(block_size):
                 appender((self.graph.add_vertex(), i))
                 node = vertex_to_block[-1][0]
                 colors[node] = i
@@ -758,7 +758,7 @@ class GraphGenerator():
             self.print_f(' -- Processing Block {}. Creating links to: {}'.format(src_block, dest_dict))
             for dest_block, num_edges in dest_dict.iteritems():
                 self.print_f('   ++ adding {} edges to {}'.format(num_edges, dest_block))
-                for i in xrange(num_edges):
+                for i in range(num_edges):
                     # find src node
                     prob = np.random.random()
                     prob_sum = 0
@@ -778,7 +778,7 @@ class GraphGenerator():
                             dest_node = vertex
                             break
                     if src_node is None or dest_node is None:
-                        print 'Error selecting node:', src_node, dest_node
+                        print('Error selecting node:', src_node, dest_node)
                     if self.graph.edge(src_node, dest_node) is None:
                         if self_edges or not src_node == dest_node:
                             add_edge(src_node, dest_node)
@@ -935,7 +935,7 @@ def calc_vertex_properties(graph, max_iter_ev=1000, max_iter_hits=1000):
 
 '''
 def fast_sd(g, src_ids=None, dest_ids=None, pairs=None, max_dist=10, loops=False):
-    # print g
+    # print(g)
     all_vertices_ids = list(map(int, g.vertices()))
     if src_ids is None:
         src_ids = all_vertices_ids
@@ -963,26 +963,26 @@ def fast_sd(g, src_ids=None, dest_ids=None, pairs=None, max_dist=10, loops=False
     distances = defaultdict(lambda: defaultdict(int))
     m_max = g.num_vertices() * (g.num_vertices() - 1)
     reachable = 0
-    for current_distance in xrange(1, max_dist + 1):
+    for current_distance in range(1, max_dist + 1):
         m_non_zero = M.nnz
 
         if m_non_zero == 0:
             break
         reachable += m_non_zero
-        print current_distance, reachable/m_max
+        print(current_distance, reachable/m_max)
         #pairs_with_current_distance = pairs & set(zip(*m_non_zero))
         #for src, dest in pairs_with_current_distance:
         #    distances[dest][src] = current_distance
         #pairs -= pairs_with_current_distance
         if not pairs:
-            # print 'break at:', current_distance
+            # print('break at:', current_distance)
             break
         M_old = M.copy()
         M *= A
         M -= M_old
         M = M.astype(bool)
     if len(pairs):
-        # print '#pairs without distance:', len(pairs)
+        # print('#pairs without distance:', len(pairs))
         pass
     return distances
 '''

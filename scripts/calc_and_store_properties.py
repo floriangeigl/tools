@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 from graph_tool.all import *
 import sys
 import datetime
@@ -7,19 +7,19 @@ start = datetime.datetime.now()
 filename = sys.argv[1]
 assert filename.endswith('.gt')
 g = load_graph(filename)
-print 'calc pagerank'
+print('calc pagerank')
 g.vp['pagerank'] = pagerank(g)
-print 'calc betweenness'
+print('calc betweenness')
 g.vp['betweenness'], g.ep['betweenness'] = betweenness(g)
-print 'calc eigenvector'
+print('calc eigenvector')
 eigenval, g.vp['eigenvector'] = eigenvector(g)
 g.gp['eigenval'] = g.new_graph_property('float', eigenval)
-print 'calc closeness'
+print('calc closeness')
 g.vp['closeness'] = closeness(g)
-print 'calc local clustering'
+print('calc local clustering')
 g.vp['local_clustering'] = local_clustering(g)
 if len(sys.argv) > 2:
     g.save(sys.argv[2])
 else:
     g.save(filename)
-print 'all done', datetime.datetime.now() - start
+print('all done', datetime.datetime.now() - start)

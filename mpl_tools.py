@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 from sys import platform as _platform
 import matplotlib
 
@@ -33,7 +33,7 @@ def plot_set_limits(values=None, min_v=None, max_v=None, axis=None, ax=None, off
             elif 'y' in axis:
                 plt.ylim([min_v, max_v])
             else:
-                print 'axis:', ax, 'unknown. use "x" or "y"'
+                print('axis:', ax, 'unknown. use "x" or "y"')
     else:
         if axis is None:
             ax.set_xlim([min_v, max_v])
@@ -44,7 +44,7 @@ def plot_set_limits(values=None, min_v=None, max_v=None, axis=None, ax=None, off
             elif 'y' in axis:
                 ax.ylim([min_v, max_v])
             else:
-                print 'axis:', ax, 'unknown. use "x" or "y"'
+                print('axis:', ax, 'unknown. use "x" or "y"')
 
 
 def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True,

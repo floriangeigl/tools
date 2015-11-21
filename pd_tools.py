@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 from sys import platform as _platform
 import matplotlib
 if _platform == "linux" or _platform == "linux2":
@@ -83,7 +83,7 @@ def print_tex_table(df, cols=None, mark_min=r'\wedge\ ', mark_max=r'\vee\ ', mar
 
     for col_idx, col in enumerate(df.columns):
         col_min, col_max = df[col].min(), df[col].max()
-        # print len(df[col])
+        # print(len(df[col]))
         if colors:
             col_colors = colors[col]
         col_digits = digits[col_idx]
