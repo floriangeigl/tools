@@ -329,7 +329,8 @@ class SBMGenerator():
     @staticmethod
     def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,
                              degree_seq='powerlaw', powerlaw_exp=2.4, num_links=None, loops=False, min_degree=1,
-                             con_prob_matrix=None, increase_lcc_prob=True, parallel_edges=False):
+                             con_prob_matrix=None, increase_lcc_prob=True, parallel_edges=False,
+                             node_pick_strat=('dist', 'dist')):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         if isinstance(blocks, list):
@@ -340,7 +341,7 @@ class SBMGenerator():
             num_blocks = blocks
             block_sizes = [int(num_nodes / num_blocks) for i in range(num_blocks)]
             num_unmapped_nodes = num_nodes % num_blocks
-            print('unmapped nodes', num_unmapped_nodes)
+            # print('unmapped nodes', num_unmapped_nodes)
             if num_unmapped_nodes > 0:
                 for i in range(num_unmapped_nodes):
                     block_sizes[i] += 1
@@ -415,6 +416,14 @@ class SBMGenerator():
         else:
             edges = set()
             edges_adder = edges.add
+
+        if isinstance(node_pick_strat, str):
+            node_pick_strat = (node_pick_strat, node_pick_strat)
+        pick_funcs = dict()
+        pick_funcs['rnd'] = lambda b: random.choice(block_to_vertices[b])
+        pick_funcs['dist'] = lambda b: block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]
+        src_pick_func, dest_pick_func = map(lambda x: pick_funcs[x], node_pick_strat)
+
         if increase_lcc_prob:
             for v in g.vertices():
                 if directed or v.out_degree() == 0:
@@ -422,7 +431,7 @@ class SBMGenerator():
                     init_len = len(edges)
                     while init_len == len(edges):
                         dest_b = SBMGenerator.get_one_random_block(cum_sum, num_blocks, src_block)
-                        dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
+                        dest_v = dest_pick_func(dest_b)
                         link = (int(v), dest_v)
                         is_loop = v == dest_v
                         if not is_loop:
@@ -436,8 +445,8 @@ class SBMGenerator():
             while True:
                 #maybe switch to: get random node. identify block. get random dest-block.
                 src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, num_blocks)
-                src_v = block_to_vertices[src_b][SBMGenerator.get_random_node(block_to_cumsum[src_b])]
-                dest_v = block_to_vertices[dest_b][SBMGenerator.get_random_node(block_to_cumsum[dest_b])]
+                src_v = src_pick_func(src_b)
+                dest_v = dest_pick_func(dest_b)
                 link = (src_v, dest_v)
                 is_loop = src_v == dest_v
                 if not is_loop:
