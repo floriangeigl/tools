@@ -422,6 +422,14 @@ class SBMGenerator():
         pick_funcs = dict()
         pick_funcs['rnd'] = lambda b: random.choice(block_to_vertices[b])
         pick_funcs['dist'] = lambda b: block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]
+        pick_funcs['invdist'] = lambda b: block_to_vertices[b][
+            SBMGenerator.get_random_node(1. - block_to_cumsum[b][::-1])]
+
+        # more efficient way to pick both inverse to the dist
+        if node_pick_strat[0] == node_pick_strat[1] == 'invdist':
+            node_pick_strat[0] = node_pick_strat[1] = 'dist'
+            block_to_cumsum = {key: (1. - val[::-1]) for key, val in block_to_cumsum.items()}
+
         src_pick_func, dest_pick_func = map(lambda x: pick_funcs[x], node_pick_strat)
 
         if increase_lcc_prob:

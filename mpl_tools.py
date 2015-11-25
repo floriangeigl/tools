@@ -48,12 +48,20 @@ def plot_set_limits(values=None, min_v=None, max_v=None, axis=None, ax=None, off
 
 
 def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True,
-                legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True):
+                legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True, labels=None):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': font_size})
     f2 = plt.figure(figsize=figsize)
-    handles, labels = ax.get_legend_handles_labels()
+    handles, ax_labels = ax.get_legend_handles_labels()
+    if labels is not None:
+        if len(labels) == len(ax_labels) and set(labels) == set(ax_labels):
+            handles = [handles[ax_labels.index(l)] for l in labels]
+        else:
+            handles = handles[:len(labels)]
+    else:
+        labels = ax_labels
+
     if ncols is None:
         num_labels = len(labels)
         if nrows is not None:
