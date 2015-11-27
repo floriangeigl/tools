@@ -29,4 +29,4 @@ class Test_sunburst(unittest.TestCase):
         test_file = 'test.csv'
         pd_tools.to_sunburst_csv(ser, test_file, exec_r=True)
         os.remove(test_file)
-        #os.remove(test_file.rsplit('.csv', 1)[0] + '.html')
+        os.remove(test_file.rsplit('.csv', 1)[0] + '.html')
