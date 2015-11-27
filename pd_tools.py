@@ -220,19 +220,27 @@ def df_sample(_df, _frequency):
     return _df.loc[frequency_range]
 
 
-def to_sunburst_csv(ser, filename='sunburst.csv', sep='-', end_name='end', start_point=None, exec_r=False):
+def to_sunburst_csv(df, filename='sunburst.csv', sep='-', end_name='end', start_point=None, exec_r=False,
+                    df_seq_col=None, df_count_col=None, bg_color='white', sort=('count', 'seq'),
+                    ascending=(False, True)):
     # creates a csv suitable for https://github.com/timelyportfolio/sunburstR
-    if isinstance(ser.iat[0], list):
-        # copy list
-        ser = ser.copy()
-        ser = ser.apply(lambda x: map(lambda y: str(y).replace('-', ''), x))
-    else:
-        # split using seperator
-        # ser = ser.str.replace(sep + sep, sep)
-        ser = ser.str.split(sep)
+    if isinstance(df, pd.Series) or (isinstance(df, pd.DataFrame) and len(df.columns) == 1):
+        if isinstance(df, pd.DataFrame):
+            df = df[df.columns[0]]
+        df = pd.DataFrame(columns=['seq'],data=df.copy())
+        if isinstance(df['seq'].iloc[0], list):
+            # copy list
+            df['seq'] = df['seq'].apply(lambda x: map(lambda y: str(y).replace('-', ''), x))
+        else:
+            df['seq'] = df['seq'].str.split(sep)
+    elif isinstance(df, pd.DataFrame):
+        seq_col_name = df_seq_col if df_seq_col is not None else df.columns[0]
+        count_col_name = df_seq_col if df_seq_col is not None else df.columns[1]
+        df = df[[seq_col_name, count_col_name]]
+        df.columns = ['seq', 'counts']
 
     # right strip empty elements
-    ser = ser.apply(lambda x: x[:-1] if x[-1] == '' and len(x) > 1 else x)
+    df['seq'] = df['seq'].apply(lambda x: x[:-1] if x[-1] == '' and len(x) > 1 else x)
 
     if start_point is not None:
         def get_start_idx(seq):
@@ -241,48 +249,55 @@ def to_sunburst_csv(ser, filename='sunburst.csv', sep='-', end_name='end', start
             except ValueError:
                 return None
 
-        start_idx = ser.apply(get_start_idx).astype('float')
-        valid_elements = ser[start_idx.notnull()]
-        print("%.2f" % (len(valid_elements) / len(ser) * 100), 'elements containing', start_point)
-        ser = valid_elements.apply(lambda x: x[start_idx:])
+        start_idx = df['seq'].apply(get_start_idx).astype('float')
+        valid_elements = df[start_idx.notnull()]
+        print("%.2f" % (len(valid_elements) / len(df) * 100), 'elements containing', start_point)
+        df.drop(np.invert(valid_elements), inplace=True)
+        df['seq'] = valid_elements.apply(lambda x: x[start_idx:])
 
     # get length of longest element
-    longest_seq = ser.apply(len).max()
+    longest_seq = df['seq'].apply(len).max()
 
     # append end to sequences shorter than the longest one
     end_element = [end_name]
-    ser = ser.apply(lambda x: '-'.join(map(str, ((x + end_element) if len(x) < longest_seq else x))))
-    ser = ser.groupby(by=ser).count()
-    ser.to_csv(filename, index=True, sep=',', header=False)
+    df['seq'] = df['seq'].apply(lambda x: '-'.join(map(str, ((x + end_element) if len(x) < longest_seq else x))))
+    if 'count' not in df.columns:
+        df = df['seq'].groupby(by=df['seq']).count()
+        df = pd.DataFrame(columns=['seq', 'count'], data=zip(list(df.index), list(df)), index=range(len(df)))
+    if sort is not None and ascending is not None:
+        if isinstance(sort, str):
+            sort = [sort]
+        sort = list(sort)
+        if isinstance(ascending, bool):
+            ascending = [ascending]
+        ascending = list(ascending)
+        if len(ascending) > len(sort):
+            ascending.extend([ascending[-1]] * (len(sort) - len(ascending)))
+        elif len(ascending) < len(sort):
+            ascending[:len(sort)]
+        df.sort_values(by=sort, ascending=ascending, inplace=True)
+    df.to_csv(filename, header=False, index=False, sep=',')
     if exec_r:
-        '''
-        html_filename = filename.rsplit('.csv', 1)[0] + '.html'
+        html_fn = filename.rsplit('.csv', 1)[0] + '.html'
         script_string = 'library(sunburstR)\n'
-        script_string += 'seq_d <- read.csv("' + filename + '")\n'
-        script_string += 'html_string<-sunburst_html(seq_d)\n'
-        script_string += 'sink("' + html_filename + '")\n'
-        script_string += 'print(html_string)\n'
-        script_string += 'sink()\n'
-        # script_string += 'print(html_string)\n'
-        #script_string += 'fileConn<-file("' + html_filename + '")\n'
-        #script_string += 'writeLines(html_string, fileConn)\n'
-        #script_string += 'close(fileConn)\n'
-        # script_string += 'lapply(html_string, write, "' + html_filename + '", append=TRUE, ncolumns=1000)'
+        script_string += 'library("htmlwidgets")\n'
+        script_string += 'seq_d <- read.csv("' + filename + '", header=F ,stringsAsFactors = FALSE)\n'
+        script_string += 'saveWidget(sunburst(seq_d), ' \
+                         '"' + html_fn + '", selfcontained = TRUE, libdir = NULL,  background = "' + bg_color + '")\n'
         tmp_r_script = 'tmp_r_sunburst_script.r'
         with open(tmp_r_script, 'w') as f:
             f.write(script_string)
         if os.system('r ' + tmp_r_script):
             print('make sure you have installed r and sunburstR!')
             print('Hint:')
-            # install.packages("rtools", repos = "http://cran.us.r-project.org")
-            #print('\tinstall.packages("rtools", repos = "http://cran.us.r-project.org")')
-
-            print('\tinstall.packages("devtools", repos="http://cran.us.r-project.org")')
-            print('\tif installing devtools fails maybe try: ')
+            print('\tinstall.packages("devtools")')
+            print('\tif installing devtools fails maybe try:')
             print('\t\tinstall.packages("Rcpp")  OR')
-            print('\t\tupdate.packages(checkBuilt=TRUE, ask=FALSE, repos="http://cran.us.r-project.org")')
-            print('\t')
+            print('\t\tupdate.packages(checkBuilt=TRUE, ask=FALSE)')
+            print('\tinstall.packages("htmlwidgets")')
             print('\tdevtools::install_github')
             print('\tdevtools::install_github("timelyportfolio/sunburstR")')
-        '''
+        else:
+            os.remove(tmp_r_script)
+
 
