@@ -12,6 +12,8 @@ import operator
 from collections import defaultdict
 import copy
 from pandas.core.base import FrozenList
+import sys
+import os
 
 
 def set_output_fmt(max_colwidth=100000, width=100000, max_rows=10000):
@@ -216,3 +218,71 @@ def df_sample(_df, _frequency):
     if num_rows not in frequency_range:
         frequency_range = np.append(frequency_range, [num_rows])
     return _df.loc[frequency_range]
+
+
+def to_sunburst_csv(ser, filename='sunburst.csv', sep='-', end_name='end', start_point=None, exec_r=False):
+    # creates a csv suitable for https://github.com/timelyportfolio/sunburstR
+    if isinstance(ser.iat[0], list):
+        # copy list
+        ser = ser.copy()
+        ser = ser.apply(lambda x: map(lambda y: str(y).replace('-', ''), x))
+    else:
+        # split using seperator
+        # ser = ser.str.replace(sep + sep, sep)
+        ser = ser.str.split(sep)
+
+    # right strip empty elements
+    ser = ser.apply(lambda x: x[:-1] if x[-1] == '' and len(x) > 1 else x)
+
+    if start_point is not None:
+        def get_start_idx(seq):
+            try:
+                return seq.index(start_point)
+            except ValueError:
+                return None
+
+        start_idx = ser.apply(get_start_idx).astype('float')
+        valid_elements = ser[start_idx.notnull()]
+        print("%.2f" % (len(valid_elements) / len(ser) * 100), 'elements containing', start_point)
+        ser = valid_elements.apply(lambda x: x[start_idx:])
+
+    # get length of longest element
+    longest_seq = ser.apply(len).max()
+
+    # append end to sequences shorter than the longest one
+    end_element = [end_name]
+    ser = ser.apply(lambda x: '-'.join(map(str, ((x + end_element) if len(x) < longest_seq else x))))
+    ser = ser.groupby(by=ser).count()
+    ser.to_csv(filename, index=True, sep=',', header=False)
+    if exec_r:
+        '''
+        html_filename = filename.rsplit('.csv', 1)[0] + '.html'
+        script_string = 'library(sunburstR)\n'
+        script_string += 'seq_d <- read.csv("' + filename + '")\n'
+        script_string += 'html_string<-sunburst_html(seq_d)\n'
+        script_string += 'sink("' + html_filename + '")\n'
+        script_string += 'print(html_string)\n'
+        script_string += 'sink()\n'
+        # script_string += 'print(html_string)\n'
+        #script_string += 'fileConn<-file("' + html_filename + '")\n'
+        #script_string += 'writeLines(html_string, fileConn)\n'
+        #script_string += 'close(fileConn)\n'
+        # script_string += 'lapply(html_string, write, "' + html_filename + '", append=TRUE, ncolumns=1000)'
+        tmp_r_script = 'tmp_r_sunburst_script.r'
+        with open(tmp_r_script, 'w') as f:
+            f.write(script_string)
+        if os.system('r ' + tmp_r_script):
+            print('make sure you have installed r and sunburstR!')
+            print('Hint:')
+            # install.packages("rtools", repos = "http://cran.us.r-project.org")
+            #print('\tinstall.packages("rtools", repos = "http://cran.us.r-project.org")')
+
+            print('\tinstall.packages("devtools", repos="http://cran.us.r-project.org")')
+            print('\tif installing devtools fails maybe try: ')
+            print('\t\tinstall.packages("Rcpp")  OR')
+            print('\t\tupdate.packages(checkBuilt=TRUE, ask=FALSE, repos="http://cran.us.r-project.org")')
+            print('\t')
+            print('\tdevtools::install_github')
+            print('\tdevtools::install_github("timelyportfolio/sunburstR")')
+        '''
+
