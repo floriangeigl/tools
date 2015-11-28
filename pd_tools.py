@@ -220,24 +220,29 @@ def df_sample(_df, _frequency):
     return _df.loc[frequency_range]
 
 
-def to_sunburst_csv(df, filename='sunburst.csv', sep='-', end_name='end', start_point=None, exec_r=False,
+def to_sunburst_csv(df, filename='sunburst.csv', sep='/', end_name='end', start_point=None, exec_r=False,
                     df_seq_col=None, df_count_col=None, bg_color='white', sort=('count', 'seq'),
-                    ascending=(False, True)):
+                    ascending=(False, True), max_depth=None, iterations=0):
     # creates a csv suitable for https://github.com/timelyportfolio/sunburstR
     if isinstance(df, pd.Series) or (isinstance(df, pd.DataFrame) and len(df.columns) == 1):
         if isinstance(df, pd.DataFrame):
             df = df[df.columns[0]]
-        df = pd.DataFrame(columns=['seq'],data=df.copy())
-        if isinstance(df['seq'].iloc[0], list):
-            # copy list
-            df['seq'] = df['seq'].apply(lambda x: map(lambda y: str(y).replace('-', ''), x))
-        else:
-            df['seq'] = df['seq'].str.split(sep)
+        df = pd.DataFrame(columns=['seq'], data=df.copy())
     elif isinstance(df, pd.DataFrame):
         seq_col_name = df_seq_col if df_seq_col is not None else df.columns[0]
-        count_col_name = df_seq_col if df_seq_col is not None else df.columns[1]
+        count_col_name = df_count_col if df_count_col is not None else df.columns[1]
+        assert count_col_name != seq_col_name
         df = df[[seq_col_name, count_col_name]]
         df.columns = ['seq', 'counts']
+
+    if isinstance(df['seq'].iloc[0], list):
+        # copy list
+        df['seq'] = df['seq'].apply(lambda x: map(lambda y: str(y).replace('-', ''), x))
+    else:
+        if sep != '-':
+            df['seq'] = df['seq'].str.replace('-', '')
+        df['seq'] = df['seq'].str.split(sep)
+    # print(df.head())
 
     # right strip empty elements
     df['seq'] = df['seq'].apply(lambda x: x[:-1] if x[-1] == '' and len(x) > 1 else x)
@@ -249,11 +254,21 @@ def to_sunburst_csv(df, filename='sunburst.csv', sep='-', end_name='end', start_
             except ValueError:
                 return None
 
-        start_idx = df['seq'].apply(get_start_idx).astype('float')
-        valid_elements = df[start_idx.notnull()]
-        print("%.2f" % (len(valid_elements) / len(df) * 100), 'elements containing', start_point)
-        df.drop(np.invert(valid_elements), inplace=True)
-        df['seq'] = valid_elements.apply(lambda x: x[start_idx:])
+        df['start_idx'] = df['seq'].apply(get_start_idx).astype('float')
+        valid_elements = df[df['start_idx'].notnull()]
+        if 'count' in df.columns:
+            print("%.2f" % (valid_elements['count'].sum() / df['count'].sum() * 100), '% of sequences containing', start_point)
+        else:
+            print("%.2f" % (len(valid_elements) / len(df) * 100), '% of sequences containing', start_point)
+        df = df.loc[valid_elements.index]
+        df['start_idx'] = df['start_idx'].astype('int')
+        df['seq'] = df[['seq', 'start_idx']].apply(lambda (seq, start_idx): seq[start_idx:], axis=1)
+        df['seq'] = df['seq'].apply(lambda x: x if isinstance(x, list) else [x])
+        df.drop('start_idx', inplace=True, axis=1)
+        # print(df.head())
+
+    if max_depth is not None:
+        df['seq'] = df['seq'].apply(lambda x: x[:max_depth] if len(x) > max_depth else x)
 
     # get length of longest element
     longest_seq = df['seq'].apply(len).max()
@@ -264,6 +279,20 @@ def to_sunburst_csv(df, filename='sunburst.csv', sep='-', end_name='end', start_
     if 'count' not in df.columns:
         df = df['seq'].groupby(by=df['seq']).count()
         df = pd.DataFrame(columns=['seq', 'count'], data=zip(list(df.index), list(df)), index=range(len(df)))
+    elif len(set(df['seq'])) < len(df):
+        df = df.groupby(by='seq').sum()
+        print(df.head())
+    for i in range(iterations):
+        raise Exception('not implemented yet')
+        indices = set(df.index)
+        data = list()
+        for idx, row_data in df.iterrows():
+            filt_df = df.loc[indices - {idx}]
+            seq_end = filter(lambda x: x != end_name, row_data['seq'].rplit('-', 2))[-1]
+            counts = row_data['count']
+            if seq_end == end_name:
+                pass
+
     if sort is not None and ascending is not None:
         if isinstance(sort, str):
             sort = [sort]
