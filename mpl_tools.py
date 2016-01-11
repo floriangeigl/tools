@@ -48,7 +48,7 @@ def plot_set_limits(values=None, min_v=None, max_v=None, axis=None, ax=None, off
 
 
 def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True,
-                legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True, labels=None):
+                legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True, labels=None, close_plot=True):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
         matplotlib.rcParams.update({'font.size': font_size})
@@ -92,7 +92,8 @@ def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows
 
     f2.legend(handles, labels, loc='center', ncol=ncols)
     plt.savefig(filename, bbox_tight=True)
-    plt.close('all')
+    if close_plot:
+        plt.close('all')
     if filename.endswith('.pdf') and crop:
         crop_pdf(filename)
     if font_size is not None:
