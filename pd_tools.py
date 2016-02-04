@@ -320,7 +320,7 @@ def to_sunburst_csv(df, filename='sunburst.csv', sep='/', end_name='end', start_
         with open(tmp_r_script, 'w') as f:
             f.write(script_string)
         if os.system('r ' + tmp_r_script):
-            print('make sure you have installed r and sunburstR!')
+            print('make sure you installed r and sunburstR!')
             print('Hint:')
             print('\tinstall.packages("devtools")')
             print('\tif installing devtools fails maybe try:')
