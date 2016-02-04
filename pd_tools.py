@@ -223,7 +223,8 @@ def df_sample(_df, _frequency):
 def to_sunburst_csv(df, filename='sunburst.csv', sep='/', end_name='end', start_point=None, exec_r=False,
                     df_seq_col=None, df_count_col=None, bg_color='white', sort=('count', 'seq'),
                     ascending=(False, True), max_depth=None, iterations=0):
-    start_point = start_point.replace('-', '')
+    if start_poin is not None:
+        start_point = start_point.replace('-', '')
     end_name = end_name.replace('-', '')
     # creates a csv suitable for https://github.com/timelyportfolio/sunburstR
     if isinstance(df, pd.Series) or (isinstance(df, pd.DataFrame) and len(df.columns) == 1):
