@@ -47,7 +47,7 @@ def plot_set_limits(values=None, min_v=None, max_v=None, axis=None, ax=None, off
                 print('axis:', ax, 'unknown. use "x" or "y"')
 
 
-def plot_legend(ax, filename, font_size=None, figsize=(16, 3), ncols=None, nrows=None, crop=True,
+def plot_legend(ax, filename, font_size=None, figsize=(20, 10), ncols=None, nrows=None, crop=True,
                 legend_name_idx=None, legend_name_style='bf', labels_right_to_left=True, labels=None, close_plot=True):
     default_font_size = matplotlib.rcParams['font.size']
     if font_size is not None:
