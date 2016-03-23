@@ -95,7 +95,7 @@ def plot_legend(ax, filename, font_size=None, figsize=(20, 10), ncols=None, nrow
                     sorted_handle_labels.append(h_l)
         handles, labels = zip(*sorted_handle_labels)
 
-    f2.legend(handles, labels, loc='center', ncol=ncols, title=legend_title)
+    legend = f2.legend(handles, labels, loc='center', ncol=ncols, title=legend_title)
     plt.savefig(filename, bbox_tight=True)
     if close_plot:
         plt.close('all')
@@ -105,6 +105,7 @@ def plot_legend(ax, filename, font_size=None, figsize=(20, 10), ncols=None, nrow
         matplotlib.rcParams.update({'font.size': default_font_size})
     if legend_name_idx is not None and legend_name_style is not None:
         matplotlib.rcParams['text.usetex'] = use_text_default
+    return legend
 
 
 def save_n_crop(fn):
