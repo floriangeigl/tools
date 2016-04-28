@@ -356,15 +356,18 @@ class SBMGenerator():
         prob_pmap = g.new_vertex_property('float')
         block_to_vertices = dict()
         block_to_cumsum = dict()
-        if degree_seq == 'powerlaw':
-            degree_seq = stats.zipf.rvs(powerlaw_exp, loc=min_degree, size=num_nodes).astype('float')
-        elif degree_seq == 'random':
-            degree_seq = np.random.random(size=num_nodes)
-        elif degree_seq == 'exp':
-            degree_seq = np.random.exponential(size=num_nodes)
+        if isinstance(degree_seq, (np.ndarray, list, tuple)) and len(degree_seq) == num_nodes:
+            pass
         else:
-            degree_seq = np.array([1.0] * num_nodes)
-        degree_seq.sort()
+            if degree_seq == 'powerlaw':
+                degree_seq = stats.zipf.rvs(powerlaw_exp, loc=min_degree, size=num_nodes).astype('float')
+            elif degree_seq == 'random':
+                degree_seq = np.random.random(size=num_nodes)
+            elif degree_seq == 'exp':
+                degree_seq = np.random.exponential(size=num_nodes)
+            else:
+                degree_seq = np.array([1.0] * num_nodes)
+            degree_seq.sort()
         degree_seq /= degree_seq.sum()
         multiplier = min_degree/degree_seq.min()
         degree_seq *= multiplier
