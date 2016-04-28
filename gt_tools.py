@@ -462,7 +462,7 @@ class SBMGenerator():
                 #maybe switch to: get random node. identify block. get random dest-block.
                 src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, num_blocks)
                 src_v = src_pick_func(src_b)
-                dest_v = dest_pick_func(dest_b)
+                dest_v = dest_pick_func(dest_b, src_b)
                 link = (src_v, dest_v)
                 is_loop = src_v == dest_v
                 if not is_loop:
