@@ -357,7 +357,7 @@ class SBMGenerator():
         block_to_vertices = dict()
         block_to_cumsum = dict()
         if isinstance(degree_seq, (np.ndarray, list, tuple)) and len(degree_seq) == num_nodes:
-            pass
+            degree_seq = degree_seq.astype('float')
         else:
             if degree_seq == 'powerlaw':
                 degree_seq = stats.zipf.rvs(powerlaw_exp, loc=min_degree, size=num_nodes).astype('float')
