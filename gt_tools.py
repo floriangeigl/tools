@@ -424,10 +424,14 @@ class SBMGenerator():
         if isinstance(node_pick_strat, str):
             node_pick_strat = (node_pick_strat, node_pick_strat)
         pick_funcs = dict()
-        pick_funcs['rnd'] = lambda b: random.choice(block_to_vertices[b])
-        pick_funcs['dist'] = lambda b: block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]
-        pick_funcs['invdist'] = lambda b: block_to_vertices[b][
+        pick_funcs['rnd'] = lambda b, s=None: random.choice(block_to_vertices[b])
+        pick_funcs['dist'] = lambda b, s=None: block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]
+        pick_funcs['invdist'] = lambda b, s=None: block_to_vertices[b][
             SBMGenerator.get_random_node(1. - block_to_cumsum[b][::-1])]
+        pick_funcs['dist_other_com_inv_dist'] = lambda b, s=None: \
+            block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]\
+            if (s is None or s == b) else \
+                block_to_vertices[b][SBMGenerator.get_random_node(1. - block_to_cumsum[b][::-1])]
 
         # more efficient way to pick both inverse to the dist
         if node_pick_strat[0] == node_pick_strat[1] == 'invdist':
@@ -443,7 +447,7 @@ class SBMGenerator():
                     init_len = len(edges)
                     while init_len == len(edges):
                         dest_b = SBMGenerator.get_one_random_block(cum_sum, num_blocks, src_block)
-                        dest_v = dest_pick_func(dest_b)
+                        dest_v = dest_pick_func(dest_b, src_block)
                         link = (int(v), dest_v)
                         is_loop = v == dest_v
                         if not is_loop:
@@ -477,7 +481,10 @@ class SBMGenerator():
     @staticmethod
     def get_random_node(cum_sum):
         rand_num = np.random.random()
-        return np.searchsorted(cum_sum, rand_num)
+        idx = np.searchsorted(cum_sum, rand_num)
+        if idx == len(cum_sum):
+            idx -= 1
+        return idx
 
     @staticmethod
     def get_random_blocks(cum_sum, num_blocks):
