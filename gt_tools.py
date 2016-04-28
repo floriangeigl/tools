@@ -11,7 +11,8 @@ import os
 import matplotlib.cm as colormap
 from matplotlib.colors import ColorConverter as color_converter
 import pandas as pd
-import printing
+from . import printing
+# import printing
 import random
 import datetime
 import copy
@@ -26,7 +27,7 @@ import sys
 from scipy.stats import powerlaw, poisson
 from collections import defaultdict
 import traceback
-from basics import create_folder_structure
+from .basics import create_folder_structure
 import powerlaw as fit_powerlaw
 
 
@@ -349,7 +350,7 @@ class SBMGenerator():
 
         if con_prob_matrix is not None:
             assert con_prob_matrix.shape[0] == con_prob_matrix.shape[1]
-        com_pmap.a = np.hstack([np.array([idx] * i) for idx, i in enumerate(block_sizes)])
+        com_pmap.a = np.hstack([np.array([idx] * i) for idx, i in enumerate(block_sizes)]).flatten()
         g.vp['com'] = com_pmap
         other_con /= ((num_blocks - 1) if num_blocks > 1 else 1)
 
@@ -378,7 +379,7 @@ class SBMGenerator():
             print('#links not set. using:', num_links)
         # print(degree_seq)
         block_deg_seq_sum = dict()
-        vertices_array = np.array(map(int, g.vertices()))
+        vertices_array = np.array(list(map(int, g.vertices())))
         degree_indices = set(range(g.num_vertices()))
         for i in range(num_blocks):
             mask = com_pmap.a == i
