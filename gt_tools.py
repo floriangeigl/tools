@@ -357,9 +357,12 @@ class SBMGenerator():
         prob_pmap = g.new_vertex_property('float')
         block_to_vertices = dict()
         block_to_cumsum = dict()
+
         if isinstance(degree_seq, (np.ndarray, list, tuple)) and len(degree_seq) == num_nodes:
             degree_seq = degree_seq.astype('float')
+            fixed_deg_seq = True
         else:
+            fixed_deg_seq = False
             if degree_seq == 'powerlaw':
                 degree_seq = stats.zipf.rvs(powerlaw_exp, loc=min_degree, size=num_nodes).astype('float')
             elif degree_seq == 'random':
@@ -385,8 +388,11 @@ class SBMGenerator():
             mask = com_pmap.a == i
             block_num_vertices = mask.sum()
             block_to_vertices[i] = vertices_array[mask]
-            block_deg_seq_idx = random.sample(degree_indices, block_num_vertices)
-            degree_indices -= set(block_deg_seq_idx)
+            if fixed_deg_seq:
+                block_deg_seq_idx = block_to_vertices[i]
+            else:
+                block_deg_seq_idx = random.sample(degree_indices, block_num_vertices)
+                degree_indices -= set(block_deg_seq_idx)
             block_deg_seq = degree_seq[block_deg_seq_idx]
             deg_seq_sum = block_deg_seq.sum()
             block_deg_seq /= deg_seq_sum
@@ -424,29 +430,33 @@ class SBMGenerator():
         if isinstance(node_pick_strat, str):
             node_pick_strat = (node_pick_strat, node_pick_strat)
         pick_funcs = dict()
+        get_rnd_node = SBMGenerator.get_random_node
+        inv_prob = SBMGenerator.inverse_prob
         pick_funcs['rnd'] = lambda b, s=None: random.choice(block_to_vertices[b])
-        pick_funcs['dist'] = lambda b, s=None: block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]
+        pick_funcs['dist'] = lambda b, s=None: block_to_vertices[b][get_rnd_node(block_to_cumsum[b])]
         pick_funcs['invdist'] = lambda b, s=None: block_to_vertices[b][
-            SBMGenerator.get_random_node(1. - block_to_cumsum[b][::-1])]
+            get_rnd_node(inv_prob(block_to_cumsum[b]))]
         pick_funcs['dist_other_com_inv_dist'] = lambda b, s=None: \
-            block_to_vertices[b][SBMGenerator.get_random_node(block_to_cumsum[b])]\
+            block_to_vertices[b][get_rnd_node(block_to_cumsum[b])] \
             if (s is None or s == b) else \
-                block_to_vertices[b][SBMGenerator.get_random_node(1. - block_to_cumsum[b][::-1])]
+                block_to_vertices[b][get_rnd_node(inv_prob(block_to_cumsum[b]))]
 
         # more efficient way to pick both inverse to the dist
         if node_pick_strat[0] == node_pick_strat[1] == 'invdist':
             node_pick_strat[0] = node_pick_strat[1] = 'dist'
-            block_to_cumsum = {key: (1. - val[::-1]) for key, val in block_to_cumsum.items()}
+            block_to_cumsum = {key: inv_prob(val) for key, val in block_to_cumsum.items()}
 
         src_pick_func, dest_pick_func = map(lambda x: pick_funcs[x], node_pick_strat)
 
+        get_one_rnd_block = SBMGenerator.get_one_random_block
         if increase_lcc_prob:
             for v in g.vertices():
                 if directed or v.out_degree() == 0:
                     src_block = com_pmap[v]
                     init_len = len(edges)
                     while init_len == len(edges):
-                        dest_b = SBMGenerator.get_one_random_block(cum_sum, num_blocks, src_block)
+                        dest_b = get_one_rnd_block(cum_sum, num_blocks, src_block) \
+                            if 'dist_other_com_inv_dist' not in node_pick_strat else src_block
                         dest_v = dest_pick_func(dest_b, src_block)
                         link = (int(v), dest_v)
                         is_loop = v == dest_v
@@ -457,11 +467,12 @@ class SBMGenerator():
                         elif loops:
                             edges_adder(link)
 
+        get_rnd_blocks = SBMGenerator.get_random_blocks
         for link_idx in range(num_links - len(edges)):
             while True:
                 #maybe switch to: get random node. identify block. get random dest-block.
-                src_b, dest_b = SBMGenerator.get_random_blocks(cum_sum, num_blocks)
-                src_v = src_pick_func(src_b)
+                src_b, dest_b = get_rnd_blocks(cum_sum, num_blocks)
+                src_v = src_pick_func(src_b, dest_b)
                 dest_v = dest_pick_func(dest_b, src_b)
                 link = (src_v, dest_v)
                 is_loop = src_v == dest_v
@@ -477,6 +488,13 @@ class SBMGenerator():
             edges = list(edges)
         g.add_edge_list(edges)
         return g
+
+    @staticmethod
+    def inverse_prob(p_cum_sum):
+        p = np.hstack([p_cum_sum[0], np.ediff1d(p_cum_sum)])
+        p = 1. / p
+        p /= p.sum()
+        return p.cumsum()
 
     @staticmethod
     def get_random_node(cum_sum):
