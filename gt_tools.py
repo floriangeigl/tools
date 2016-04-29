@@ -331,7 +331,7 @@ class SBMGenerator():
     def gen_stoch_blockmodel(num_nodes=1000, blocks=5, self_con=.97, other_con=0.03, directed=False,
                              degree_seq='powerlaw', powerlaw_exp=2.4, num_links=None, loops=False, min_degree=1,
                              con_prob_matrix=None, increase_lcc_prob=True, parallel_edges=False,
-                             node_pick_strat=('dist', 'dist')):
+                             node_pick_strat=('dist', 'dist'), scale_con_prop_matrix=True):
         g = Graph(directed=directed)
         com_pmap = g.new_vertex_property('int')
         if isinstance(blocks, list):
@@ -350,6 +350,7 @@ class SBMGenerator():
 
         if con_prob_matrix is not None:
             assert con_prob_matrix.shape[0] == con_prob_matrix.shape[1]
+            con_prob_matrix /= con_prob_matrix.sum()
         com_pmap.a = np.hstack([np.array([idx] * i) for idx, i in enumerate(block_sizes)]).flatten()
         g.vp['com'] = com_pmap
         other_con /= ((num_blocks - 1) if num_blocks > 1 else 1)
@@ -401,21 +402,24 @@ class SBMGenerator():
             block_to_cumsum[i] = cum_sum
             block_deg_seq_sum[i] = deg_seq_sum
             prob_pmap.a[mask] = block_deg_seq
-        blocks_prob = list()
-        for i in range(num_blocks):
-            row = list()
-            for j in range(num_blocks):
-                if con_prob_matrix is None:
-                    if i == j:
-                        val = self_con
+        if scale_con_prop_matrix:
+            blocks_prob = list()
+            for i in range(num_blocks):
+                row = list()
+                for j in range(num_blocks):
+                    if con_prob_matrix is None:
+                        if i == j:
+                            val = self_con
+                        else:
+                            val = other_con
                     else:
-                        val = other_con
-                else:
-                    val = con_prob_matrix.item((i, j))
-                row.append(val * block_deg_seq_sum[i] * block_deg_seq_sum[j])
-            blocks_prob.append(np.array(row))
-        blocks_prob = np.array(blocks_prob)
-        blocks_prob /= blocks_prob.sum()
+                        val = con_prob_matrix.item((i, j))
+                    row.append(val * block_deg_seq_sum[i] * block_deg_seq_sum[j])
+                blocks_prob.append(np.array(row))
+            blocks_prob = np.array(blocks_prob)
+            blocks_prob /= blocks_prob.sum()
+        else:
+            blocks_prob = con_prob_matrix
         # print(blocks_prob)
         cum_sum = np.cumsum(blocks_prob)
         assert np.isclose(cum_sum[-1], 1)
